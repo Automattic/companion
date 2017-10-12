@@ -50,7 +50,7 @@ function companion_wp_login() {
 	if ( empty( $auto_login ) ) {
 		$urlparts = wp_parse_url( site_url() );
 		$domain = $urlparts['host'];
-		$url = "$companion_api_base_url/extend/";
+		$url = "$companion_api_base_url/extend";
 		wp_remote_post( $url, [
 			'body' => [
 				'domain' => $domain,
@@ -59,7 +59,7 @@ function companion_wp_login() {
 	} else {
 		$urlparts = wp_parse_url( site_url() );
 		$domain = $urlparts ['host'];
-		$url = "$companion_api_base_url/checkin/";
+		$url = "$companion_api_base_url/checkin";
 		wp_remote_post( $url, [
 			'body' => [
 				'domain' => $domain,
