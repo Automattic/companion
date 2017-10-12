@@ -9,7 +9,7 @@ Author URI: https://github.com/oskosk
 */
 
 
-$companion_api_base_url = get_option( 'companion_base_url' );
+$companion_api_base_url = get_option( 'companion_api_base_url' );
 
 add_action( 'wp_login', 'companion_wp_login', 1, 2 );
 add_action( 'after_setup_theme', 'companion_after_setup_theme' );
