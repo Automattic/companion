@@ -1,0 +1,2 @@
+# companion
+Just a plugin
