@@ -1,20 +1,22 @@
 <?php
 /*
-Plugin Name: Jurassic Ninja Companion Plugin
+Plugin Name: Companion Plugin
 Plugin URI: https://github.com/oskosk/companion
-Description: Helps Jurassic Ninja keep the launched WordPress in order.
+Description: Helps keep the launched WordPress in order.
 Version: 1.0.0
 Author: Osk
 Author URI: https://github.com/oskosk
 */
 
 
-add_action( 'wp_login', 'jurassic_ninja_wp_login', 1, 2 );
-add_action( 'after_setup_theme', 'jurassic_ninja_after_setup_theme' );
-add_action( 'admin_notices', 'jurassic_ninja_admin_notices' );
-add_action( 'pre_current_active_plugins', 'jurassic_ninja_hide_plugin' );
+$companion_api_base_url = get_option( 'companion_base_url' );
 
-function jurassic_ninja_admin_notices() {
+add_action( 'wp_login', 'companion_wp_login', 1, 2 );
+add_action( 'after_setup_theme', 'companion_after_setup_theme' );
+add_action( 'admin_notices', 'companion_admin_notices' );
+add_action( 'pre_current_active_plugins', 'companion_hide_plugin' );
+
+function companion_admin_notices() {
 	?>
 	<div class="notice notice-success is-dismissible">
 		<h3><?php _e( 'Welcome to Jurassic Ninja!', 'sample-text-domain' ); ?></h3>
@@ -27,7 +29,7 @@ function jurassic_ninja_admin_notices() {
 	<?php
 }
 
-function jurassic_ninja_hide_plugin() {
+function companion_hide_plugin() {
 	global $wp_list_table;
 	$hidearr = array( 'companion/companion.php' );
 	$myplugins = $wp_list_table->items;
@@ -38,7 +40,7 @@ function jurassic_ninja_hide_plugin() {
 	}
 }
 
-function jurassic_ninja_wp_login() {
+function companion_wp_login() {
 	delete_transient( '_wc_activation_redirect' );
 
 	$auto_login = get_option( 'auto_login' );
@@ -48,7 +50,7 @@ function jurassic_ninja_wp_login() {
 	if ( empty( $auto_login ) ) {
 		$urlparts = wp_parse_url( site_url() );
 		$domain = $urlparts['host'];
-		$url = 'https://jurassic.ninja/api/extend';
+		$url = "$companion_api_base_url/extend/";
 		wp_remote_post( $url, [
 			'body' => [
 				'domain' => $domain,
@@ -57,7 +59,7 @@ function jurassic_ninja_wp_login() {
 	} else {
 		$urlparts = wp_parse_url( site_url() );
 		$domain = $urlparts ['host'];
-		$url = 'https://jurassic.ninja/api/checkin/';
+		$url = "$companion_api_base_url/checkin/";
 		wp_remote_post( $url, [
 			'body' => [
 				'domain' => $domain,
@@ -69,7 +71,7 @@ function jurassic_ninja_wp_login() {
 }
 
 
-function jurassic_ninja_after_setup_theme() {
+function companion_after_setup_theme() {
 	$auto_login = get_option( 'auto_login' );
 	if ( ! empty( $auto_login ) ) {
 		$password = get_option( 'jurassic_ninja_admin_password' );
