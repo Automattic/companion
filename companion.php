@@ -41,6 +41,7 @@ function companion_hide_plugin() {
 }
 
 function companion_wp_login() {
+	global $companion_api_base_url;
 	delete_transient( '_wc_activation_redirect' );
 
 	$auto_login = get_option( 'auto_login' );
