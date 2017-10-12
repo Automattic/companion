@@ -53,18 +53,24 @@ function companion_wp_login() {
 		$domain = $urlparts['host'];
 		$url = "$companion_api_base_url/extend";
 		wp_remote_post( $url, [
-			'body' => [
-				'domain' => $domain,
+			'headers' => [
+				'content-type' => 'application/json',
 			],
+			'body' => wp_json_encode( [
+				'domain' => $domain,
+			] ),
 		] );
 	} else {
 		$urlparts = wp_parse_url( site_url() );
 		$domain = $urlparts ['host'];
 		$url = "$companion_api_base_url/checkin";
 		wp_remote_post( $url, [
-			'body' => [
-				'domain' => $domain,
+			'headers' => [
+				'content-type' => 'application/json',
 			],
+			'body' => wp_json_encode( [
+				'domain' => $domain,
+			] ),
 		] );
 		wp_safe_redirect( '/wp-admin' );
 		exit( 0 );
