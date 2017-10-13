@@ -20,9 +20,8 @@ function companion_admin_notices() {
 	?>
 	<div class="notice notice-success is-dismissible">
 		<h3><?php _e( 'Welcome to Jurassic Ninja!', 'sample-text-domain' ); ?></h3>
-		<p><?php _e( 'This WP will be destroyed 7 days after the last time you logged in.' ); ?></p>
+		<p><?php _e( 'This WP will be destroyed 7 days after the last time anybody logged in.' ); ?></p>
 		<p><strong>URL:</strong> <code><?php echo get_site_url(); ?></code></p>
-		<p><?php _e( 'These are your credentials' ); ?></p>
 		<p><strong>Username:</strong> <code>demo</code></p>
 		<p><strong>Password:</strong> <code><?php echo get_option( 'jurassic_ninja_admin_password' ); ?></code></p>
 	</div>
