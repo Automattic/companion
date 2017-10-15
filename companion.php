@@ -9,7 +9,7 @@ Author: Osk
 
 if ( is_multisite() && ! is_main_site() ) {
 	add_action( 'pre_current_active_plugins', 'companion_hide_plugin' );
-
+	add_action( 'admin_notices', 'companion_admin_notices' );
 	return true;
 }
 
@@ -21,12 +21,14 @@ add_action( 'admin_notices', 'companion_admin_notices' );
 add_action( 'pre_current_active_plugins', 'companion_hide_plugin' );
 
 function companion_admin_notices() {
+	$password_option_key = 'jurassic_ninja_admin_password';
+	$admin_password = is_multisite() ? get_blog_option( 1, $password_option_key ) : get_option( $password_option_key );
 	?>
 	<div class="notice notice-success is-dismissible">
-		<h3><?php _e( 'Welcome to Jurassic Ninja!', 'sample-text-domain' ); ?></h3>
-		<p><strong><?php echo esc_html( get_site_url() ); ?></strong> <?php _e( 'will be destroyed 7 days after the last time anybody logged in.' ); ?></p>
+		<h3><?php echo esc_html__( 'Welcome to Jurassic Ninja!' ); ?></h3>
+		<p><strong><?php echo esc_html( network_site_url() ); ?></strong> <?php echo esc_html__( 'will be destroyed 7 days after the last time anybody logged in.' ); ?></p>
 		<p><strong>Username:</strong> <code>demo</code></p>
-		<p><strong>Password:</strong> <code><?php echo get_option( 'jurassic_ninja_admin_password' ); ?></code></p>
+		<p><strong>Password:</strong> <code><?php echo esc_html( $admin_password ); ?></code></p>
 	</div>
 	<?php
 }
@@ -51,7 +53,7 @@ function companion_wp_login() {
 	update_option( 'auto_login', 0 );
 
 	if ( empty( $auto_login ) ) {
-		$urlparts = wp_parse_url( site_url() );
+		$urlparts = wp_parse_url( network_site_url() );
 		$domain = $urlparts['host'];
 		$url = "$companion_api_base_url/extend";
 		wp_remote_post( $url, [
@@ -63,7 +65,7 @@ function companion_wp_login() {
 			] ),
 		] );
 	} else {
-		$urlparts = wp_parse_url( site_url() );
+		$urlparts = wp_parse_url( network_site_url() );
 		$domain = $urlparts ['host'];
 		$url = "$companion_api_base_url/checkin";
 		wp_remote_post( $url, [
