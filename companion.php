@@ -7,6 +7,11 @@ Version: 1.0.0
 Author: Osk
 */
 
+if ( is_multisite() && ! is_main_site() ) {
+	add_action( 'pre_current_active_plugins', 'companion_hide_plugin' );
+
+	return true;
+}
 
 $companion_api_base_url = get_option( 'companion_api_base_url' );
 
