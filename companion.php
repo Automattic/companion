@@ -22,13 +22,18 @@ add_action( 'pre_current_active_plugins', 'companion_hide_plugin' );
 
 function companion_admin_notices() {
 	$password_option_key = 'jurassic_ninja_admin_password';
+	$sysuser_option_key = 'jurassic_ninja_sysuser';
 	$admin_password = is_multisite() ? get_blog_option( 1, $password_option_key ) : get_option( $password_option_key );
+	$sysuser = is_multisite() ? get_blog_option( 1, $sysuser_option_key ) : get_option( $sysuser_option_key );
 	?>
 	<div class="notice notice-success is-dismissible">
 		<h3><?php echo esc_html__( 'Welcome to Jurassic Ninja!' ); ?></h3>
 		<p><strong><span id="jurassic_url"><?php echo esc_html( network_site_url() ); ?></span></strong> <?php echo esc_html__( 'will be destroyed 7 days after the last time anybody logged in.' ); ?></p>
 		<p><strong>Username:</strong> <code><span id="jurassic_username">demo</span></code></p>
-		<p><strong>Password:</strong> <code><span id="jurassic_password"><?php echo esc_html( $admin_password ); ?></span></code></p>
+		<p>
+			<strong>Password:</strong> <code><span id="jurassic_password"><?php echo esc_html( $admin_password ); ?></span></code>
+			<strong>SSH suser </strong> <code><?php echo esc_html( $sysuser ); ?></code>
+		</p>
 	</div>
 	<?php
 }
