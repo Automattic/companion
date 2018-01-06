@@ -32,7 +32,7 @@ function companion_admin_notices() {
 		<p><strong>Username:</strong> <code><span id="jurassic_username">demo</span></code></p>
 		<p>
 			<strong>Password:</strong> <code><span id="jurassic_password"><?php echo esc_html( $admin_password ); ?></span></code>
-			<strong>SSH suser </strong> <code><?php echo esc_html( $sysuser ); ?></code>
+			<strong>SSH user </strong> <code><?php echo esc_html( $sysuser ); ?></code>
 		</p>
 	</div>
 	<?php
