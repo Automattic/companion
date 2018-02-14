@@ -29,10 +29,12 @@ function companion_admin_notices() {
 	<div class="notice notice-success is-dismissible">
 		<h3><?php echo esc_html__( 'Welcome to Jurassic Ninja!' ); ?></h3>
 		<p><strong><span id="jurassic_url"><?php echo esc_html( network_site_url() ); ?></span></strong> <?php echo esc_html__( 'will be destroyed 7 days after the last time anybody logged in.' ); ?></p>
-		<p><strong>Username:</strong> <code><span id="jurassic_username">demo</span></code></p>
+		<p>
+			<strong>Username:</strong> <code><span id="jurassic_username">demo</span></code>
+			<strong>SSH user </strong> <code><?php echo esc_html( $sysuser ); ?></code>
+		</p>
 		<p>
 			<strong>Password:</strong> <code><span id="jurassic_password"><?php echo esc_html( $admin_password ); ?></span></code>
-			<strong>SSH user </strong> <code><?php echo esc_html( $sysuser ); ?></code>
 		</p>
 	</div>
 	<?php
