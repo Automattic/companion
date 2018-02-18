@@ -97,6 +97,13 @@ function companion_after_setup_theme() {
 		$creds['user_login'] = 'demo';
 		$creds['user_password'] = $password;
 		$creds['remember'] = true;
-		$user = wp_signon( $creds, false );
+		$user = wp_signon( $creds, companion_site_uses_https() );
 	}
 }
+
+function companion_site_uses_https() {
+	$url = network_site_url();
+	$scheme = wp_parse_url( $url )['scheme'];
+	return $scheme === 'https';
+}
+
