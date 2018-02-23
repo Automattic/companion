@@ -30,11 +30,12 @@ function companion_admin_notices() {
 		<h3><?php echo esc_html__( 'Welcome to Jurassic Ninja!' ); ?></h3>
 		<p><strong><span id="jurassic_url"><?php echo esc_html( network_site_url() ); ?></span></strong> <?php echo esc_html__( 'will be destroyed 7 days after the last time anybody logged in.' ); ?></p>
 		<p>
-			<strong>Username:</strong> <code><span id="jurassic_username">demo</span></code>
-			<strong>SSH user </strong> <code><?php echo esc_html( $sysuser ); ?></code>
+			<strong>WP user:</strong> <code><span id="jurassic_username">demo</span></code>
+			<strong>SSH user:</strong> <code><span id="jurassic_ssh_user"><?php echo esc_html( $sysuser ); ?></span></code>
 		</p>
 		<p>
-			<strong>Password:</strong> <code><span id="jurassic_password"><?php echo esc_html( $admin_password ); ?></span></code>
+			<strong>WP/SSH password:</strong> <code><span id="jurassic_password"><?php echo esc_html( $admin_password ); ?></span></code>
+			<strong>SSH server path:</strong> <code><span id="jurassic_ssh_server_path"><?php echo esc_html( get_home_path() ); ?></span></code>
 		</p>
 	</div>
 	<?php
