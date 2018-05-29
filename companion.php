@@ -1,7 +1,7 @@
 <?php
 /*
 Plugin Name: Companion Plugin
-Plugin URI: https://github.com/oskosk/companion
+Plugin URI: https://github.com/Automattic/companion
 Description: Helps keep the launched WordPress in order.
 Version: 1.0.0
 Author: Osk
