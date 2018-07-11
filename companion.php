@@ -117,7 +117,7 @@ function companion_add_jetpack_constants_option_page() {
 	if ( ! companion_is_jetpack_here() ) {
 		return;
 	}
-	if ( ! class_exists( 'RationalOptionPages.php' ) ) {
+	if ( ! class_exists( 'RationalOptionPages' ) ) {
 		require 'RationalOptionPages.php';
 	}
 	$options_page = array(
