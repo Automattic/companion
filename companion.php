@@ -37,7 +37,7 @@ function companion_admin_notices() {
 		<p><strong><span id="jurassic_url"><?php echo esc_html( network_site_url() ); ?></span></strong> <?php echo esc_html__( 'will be destroyed 7 days after the last time anybody logged in.' ); ?></p>
 		<p>
 			<strong>WP user:</strong> <code><span id="jurassic_username">demo</span></code>
-			<strong>SSH:</strong> <code><span id="jurassic_ssh_command">ssh <?php echo esc_html( $sysuser ); ?>@<span ><?php echo esc_html( $url_without_schema ); ?></span></span></code>
+			<strong>SSH:</strong> <code><span id="jurassic_ssh_command">ssh <?php echo esc_html( $sysuser ); ?></span>@<span ><?php echo esc_html( $url_without_schema ); ?></span></code>
 		</p>
 		<p>
 			<strong>WP/SSH password:</strong> <code><span id="jurassic_password"><?php echo esc_html( $admin_password ); ?></span></code>
