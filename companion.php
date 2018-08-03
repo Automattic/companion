@@ -30,14 +30,14 @@ function companion_admin_notices() {
 	$sysuser_option_key = 'jurassic_ninja_sysuser';
 	$admin_password = is_multisite() ? get_blog_option( 1, $password_option_key ) : get_option( $password_option_key );
 	$sysuser = is_multisite() ? get_blog_option( 1, $sysuser_option_key ) : get_option( $sysuser_option_key );
-	$url_without_schema = str_replace( 'https://', '', str_replace( 'http://', '', network_site_url() ) ); 
+	$url_without_scheme = str_replace( 'https://', '', str_replace( 'http://', '', network_site_url() ) ); 
 	?>
 	<div class="notice notice-success is-dismissible">
 		<h3><?php echo esc_html__( 'Welcome to Jurassic Ninja!' ); ?></h3>
 		<p><strong><span id="jurassic_url"><?php echo esc_html( network_site_url() ); ?></span></strong> <?php echo esc_html__( 'will be destroyed 7 days after the last time anybody logged in.' ); ?></p>
 		<p>
 			<strong>WP user:</strong> <code><span id="jurassic_username">demo</span></code>
-			<strong>SSH:</strong> <code><span id="jurassic_ssh_command">ssh <?php echo esc_html( $sysuser ); ?>@<?php echo esc_html( $url_without_schema ); ?></span></code>
+			<strong>SSH:</strong> <code><span id="jurassic_ssh_command">ssh <?php echo esc_html( $sysuser ); ?>@<?php echo esc_html( $url_without_scheme ); ?></span></code>
 		</p>
 		<p>
 			<strong>WP/SSH password:</strong> <code><span id="jurassic_password"><?php echo esc_html( $admin_password ); ?></span></code>
