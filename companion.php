@@ -3,7 +3,7 @@
 Plugin Name: Companion Plugin
 Plugin URI: https://github.com/Automattic/companion
 Description: Helps keep the launched WordPress in order.
-Version: 1.3.1
+Version: 1.4
 Author: Osk
 */
 
@@ -126,6 +126,13 @@ function companion_add_jetpack_constants_option_page() {
 	if ( ! class_exists( 'RationalOptionPages' ) ) {
 		require 'RationalOptionPages.php';
 	}
+
+	$jetpack_sandbox_domain = defined( 'JETPACK__SANDBOX_DOMAIN' ) ? JETPACK__SANDBOX_DOMAIN : '';
+	$deprecated = '<strong>' . sprintf(
+		esc_html__( 'This is no longer needed see %s.', 'companion' ),
+		'<code>JETPACK__SANDBOX_DOMAIN</code>'
+	) . '</strong>';
+
 	$options_page = array(
 		'companion' => array(
 			'page_title' => __( 'Jurassic Ninja Tweaks for Jetpack Constants', 'companion' ),
@@ -137,23 +144,43 @@ function companion_add_jetpack_constants_option_page() {
 					'title' => __( 'Sites', 'companion' ),
 					'text' => '<p>' . __( 'Configure some defaults constants used by Jetpack.', 'companion' ) . '</p>',
 					'fields' => array(
-						'jetpack_api_base' => array(
-							'id' => 'jetpack_api_base',
-							'title' => __( 'JETPACK__API_BASE', 'companion' ),
-							'text' => sprintf( __( "Base URL for API requests to Jetpack.com's XML RPC API. Current value for JETPACK__API_BASE: %s", 'companion' ), JETPACK__API_BASE ),
-							'placeholder' => JETPACK__API_BASE,
-						),
-						'jetpack_wpcom_json_api_host' => array(
-							'id' => 'jetpack_wpcom_json_api_host',
-							'title' => __( 'JETPACK__WPCOM_JSON_API_HOST', 'companion' ),
-							'text' => sprintf( __( "Base URL for API requests to WordPress.com's REST API. Current value for JETPACK__WPCOM_JSON_API_HOST : %s", 'companion' ), JETPACK__WPCOM_JSON_API_HOST ),
-							'placeholder' => JETPACK__WPCOM_JSON_API_HOST,
+						'jetpack_sandbox_domain' => array(
+							'id' => 'jetpack_sandbox_domain',
+							'title' => __( 'JETPACK__SANDBOX_DOMAIN', 'companion' ),
+							'text' => sprintf(
+								esc_html__( "The domain of a WordPress.com Sandbox to which you wish to send all of Jetpack's remote requests. Must be a ___.wordpress.com subdomain with DNS permanently pointed to a WordPress.com sandbox. Current value for JETPACK__SANDBOX_DOMAIN: %s", 'companion' ),
+								'<code>' . esc_html( $jetpack_sandbox_domain ) . '</code>'
+							),
+							'placeholder' => esc_attr( $jetpack_sandbox_domain ),
 						),
 						'jetpack_protect_api_host' => array(
 							'id' => 'jetpack_protect_api_host',
 							'title' => __( 'JETPACK_PROTECT__API_HOST', 'companion' ),
-							'text' => sprintf( __( "Base URL for API requests to Jetpack Protect's REST API. Current value for JETPACK_PROTECT__API_HOST : %s", 'companion' ), JETPACK_PROTECT__API_HOST ),
-							'placeholder' => JETPACK_PROTECT__API_HOST,
+							'text' => sprintf(
+								esc_html__( "Base URL for API requests to Jetpack Protect's REST API. Current value for JETPACK_PROTECT__API_HOST: %s", 'companion' ),
+								'<code>' . esc_html( JETPACK_PROTECT__API_HOST ) . '</code>'
+							),
+							'placeholder' => esc_attr( JETPACK_PROTECT__API_HOST ),
+						),
+						'jetpack_api_base' => array(
+							'id' => 'jetpack_api_base',
+							'title' => __( 'JETPACK__API_BASE', 'companion' ),
+							'text' => sprintf(
+								esc_html__( "Base URL for API requests to Jetpack.com's XML RPC API. %s Current value for JETPACK__API_BASE: %s", 'companion' ),
+								$deprecated,
+								'<code>' . esc_html( JETPACK__API_BASE ) . '</code>'
+							),
+							'placeholder' => esc_attr( JETPACK__API_BASE ),
+						),
+						'jetpack_wpcom_json_api_host' => array(
+							'id' => 'jetpack_wpcom_json_api_host',
+							'title' => __( 'JETPACK__WPCOM_JSON_API_HOST', 'companion' ),
+							'text' => sprintf(
+								esc_html__( "Base URL for API requests to WordPress.com's REST API. %s Current value for JETPACK__WPCOM_JSON_API_HOST: %s", 'companion' ),
+								$deprecated,
+								'<code>' . esc_html( JETPACK__WPCOM_JSON_API_HOST ) . '</code>'
+							),
+							'placeholder' => esc_attr( JETPACK__WPCOM_JSON_API_HOST ),
 						),
 					),
 				),
@@ -174,6 +201,9 @@ function companion_get_option( $slug, $default = null ) {
 
 
 function companion_tamper_with_jetpack_constants() {
+	if ( companion_get_option( 'jetpack_sandbox_domain', '' ) ) {
+		define( 'JETPACK__SANDBOX_DOMAIN', companion_get_option( 'jetpack_sandbox_domain', '' ) );
+	}
 	if ( companion_get_option( 'jetpack_api_base', '' ) ) {
 		define( 'JETPACK__API_BASE', companion_get_option( 'jetpack_api_base', '' ) );
 	}
