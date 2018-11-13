@@ -3,7 +3,7 @@
 Plugin Name: Companion Plugin
 Plugin URI: https://github.com/Automattic/companion
 Description: Helps keep the launched WordPress in order.
-Version: 1.5
+Version: 1.6
 Author: Osk
 */
 
@@ -169,26 +169,6 @@ function companion_add_jetpack_constants_option_page() {
 							),
 							'placeholder' => esc_attr( JETPACK_PROTECT__API_HOST ),
 						),
-						'jetpack_api_base' => array(
-							'id' => 'jetpack_api_base',
-							'title' => __( 'JETPACK__API_BASE', 'companion' ),
-							'text' => sprintf(
-								esc_html__( "Base URL for API requests to Jetpack.com's XML RPC API. %s Current value for JETPACK__API_BASE: %s", 'companion' ),
-								$deprecated,
-								'<code>' . esc_html( JETPACK__API_BASE ) . '</code>'
-							),
-							'placeholder' => esc_attr( JETPACK__API_BASE ),
-						),
-						'jetpack_wpcom_json_api_host' => array(
-							'id' => 'jetpack_wpcom_json_api_host',
-							'title' => __( 'JETPACK__WPCOM_JSON_API_HOST', 'companion' ),
-							'text' => sprintf(
-								esc_html__( "Base URL for API requests to WordPress.com's REST API. %s Current value for JETPACK__WPCOM_JSON_API_HOST: %s", 'companion' ),
-								$deprecated,
-								'<code>' . esc_html( JETPACK__WPCOM_JSON_API_HOST ) . '</code>'
-							),
-							'placeholder' => esc_attr( JETPACK__WPCOM_JSON_API_HOST ),
-						),
 					),
 				),
 			),
@@ -211,12 +191,7 @@ function companion_tamper_with_jetpack_constants() {
 	if ( companion_get_option( 'jetpack_sandbox_domain', '' ) ) {
 		define( 'JETPACK__SANDBOX_DOMAIN', companion_get_option( 'jetpack_sandbox_domain', '' ) );
 	}
-	if ( companion_get_option( 'jetpack_api_base', '' ) ) {
-		define( 'JETPACK__API_BASE', companion_get_option( 'jetpack_api_base', '' ) );
-	}
-	if ( companion_get_option( 'jetpack_wpcom_json_api_host', '' ) ) {
-		define( 'JETPACK__WPCOM_JSON_API_HOST', companion_get_option( 'jetpack_wpcom_json_api_host', '' ) );
-	}
+
 	if ( companion_get_option( 'jetpack_protect_api_host', '' ) ) {
 		define( 'JETPACK_PROTECT__API_HOST', companion_get_option( 'jetpack_protect_api_host', '' ) );
 	}
