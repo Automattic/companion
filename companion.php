@@ -153,6 +153,13 @@ function companion_add_jetpack_constants_option_page() {
 							),
 							'placeholder' => esc_attr( $jetpack_sandbox_domain ),
 						),
+						'jetpack_beta_blocks' => array(
+							'id' => 'jetpack_beta_blocks',
+							'title' => __( 'JETPACK_BETA_BLOCKS', 'companion' ),
+							'text' =>
+								esc_html__( 'Check to enable Jetpack blocks for Gutenberg that are on Beta stage of development', 'companion' ),
+							'type' => 'checkbox',
+						),
 						'jetpack_protect_api_host' => array(
 							'id' => 'jetpack_protect_api_host',
 							'title' => __( 'JETPACK_PROTECT__API_HOST', 'companion' ),
@@ -214,6 +221,6 @@ function companion_tamper_with_jetpack_constants() {
 		define( 'JETPACK_PROTECT__API_HOST', companion_get_option( 'jetpack_protect_api_host', '' ) );
 	}
 	if ( companion_get_option( 'jetpack_beta_blocks', '' ) ) {
-		define( 'JETPACK_BETA_BLOCKS', companion_get_option( 'jetpack_beta_blocks', '' ) );
+		define( 'JETPACK_BETA_BLOCKS', companion_get_option( 'jetpack_beta_blocks', '' ) ? true : false );
 	}
 }
