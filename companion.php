@@ -30,7 +30,7 @@ function companion_admin_notices() {
 	$sysuser_option_key = 'jurassic_ninja_sysuser';
 	$admin_password = is_multisite() ? get_blog_option( 1, $password_option_key ) : get_option( $password_option_key );
 	$sysuser = is_multisite() ? get_blog_option( 1, $sysuser_option_key ) : get_option( $sysuser_option_key );
-	$host = parse_url( network_site_url(), PHP_URL_HOST ); 
+	$host = parse_url( network_site_url(), PHP_URL_HOST );
 	?>
 	<div class="notice notice-success is-dismissible">
 		<h3><?php echo esc_html__( 'Welcome to Jurassic Ninja!' ); ?></h3>
@@ -46,7 +46,7 @@ function companion_admin_notices() {
 	</div>
 	<style type="text/css">
 		#jurassic_ssh_command {
-			user-select: all;	
+			user-select: all;
 		}
 	</style>
 	<?php
@@ -212,5 +212,8 @@ function companion_tamper_with_jetpack_constants() {
 	}
 	if ( companion_get_option( 'jetpack_protect_api_host', '' ) ) {
 		define( 'JETPACK_PROTECT__API_HOST', companion_get_option( 'jetpack_protect_api_host', '' ) );
+	}
+	if ( companion_get_option( 'jetpack_beta_blocks', '' ) ) {
+		define( 'JETPACK_BETA_BLOCKS', companion_get_option( 'jetpack_beta_blocks', '' ) );
 	}
 }
