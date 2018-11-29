@@ -26,6 +26,12 @@ companion_tamper_with_jetpack_constants();
 add_action( 'init', 'companion_add_jetpack_constants_option_page' );
 
 function companion_admin_notices() {
+	if ( function_exists( 'get_current_screen' ) ) {
+		$screen = get_current_screen();
+		if ( $screen->id === 'post' ) {
+			return;
+		}
+	}
 	$password_option_key = 'jurassic_ninja_admin_password';
 	$sysuser_option_key = 'jurassic_ninja_sysuser';
 	$admin_password = is_multisite() ? get_blog_option( 1, $password_option_key ) : get_option( $password_option_key );
