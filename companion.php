@@ -40,7 +40,7 @@ function companion_admin_notices() {
 	?>
 	<div class="notice notice-success is-dismissible">
 		<h3><?php echo esc_html__( 'Welcome to Jurassic Ninja!' ); ?></h3>
-		<p><strong><span id="jurassic_url"><?php echo esc_html( network_site_url() ); ?></span></strong> <?php echo esc_html__( 'will be destroyed 7 days after the last time anybody logged in.' ); ?></p>
+		<p><strong><span id="jurassic_url"><?php echo esc_html( network_site_url() ); ?></span></strong> <?php echo esc_html__( 'will be destroyed in 7 days. Sign out and sign in to get 7 more days.' ); ?></p>
 		<p>
 			<strong>WP user:</strong> <code><span id="jurassic_username">demo</span></code>
 			<strong>SSH:</strong> <code><span id="jurassic_ssh_command">ssh <?php echo esc_html( $sysuser ); ?>@<?php echo esc_html( $host ); ?></span></code>
