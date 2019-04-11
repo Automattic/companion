@@ -52,7 +52,7 @@ function companion_admin_notices() {
 		<p>
 			<code><span>sftp://<?php echo esc_html( $sysuser ); ?>:<?php echo esc_html( $admin_password ); ?>@<?php echo esc_html( $host ); ?>:22/<?php echo esc_html( get_home_path() ); ?></span></code>
 		</p>
-    </div>
+	</div>
 	<style type="text/css">
 		#jurassic_ssh_command {
 			user-select: all;
