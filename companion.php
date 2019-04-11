@@ -50,11 +50,12 @@ function companion_admin_notices() {
 			<strong>SSH server path:</strong> <code><span id="jurassic_ssh_server_path"><?php echo esc_html( get_home_path() ); ?></span></code>
 		</p>
 		<p>
-			<code><span>sftp://<?php echo esc_html( $sysuser ); ?>:<?php echo esc_html( $admin_password ); ?>@<?php echo esc_html( $host ); ?>:22<?php echo esc_html( get_home_path() ); ?></span></code>
+			<strong>SFTP:</strong><code><span id="jurassic_sftp_url">sftp://<?php echo esc_html( $sysuser ); ?>:<?php echo esc_html( $admin_password ); ?>@<?php echo esc_html( $host ); ?>:22<?php echo esc_html( get_home_path() ); ?></span></code>
 		</p>
 	</div>
 	<style type="text/css">
-		#jurassic_ssh_command {
+		#jurassic_ssh_command,
+		#jurassic_sftp_url {
 			user-select: all;
 		}
 	</style>
