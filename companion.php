@@ -113,7 +113,8 @@ function companion_wp_login() {
 
 function companion_after_setup_theme() {
 	$auto_login = get_option( 'auto_login' );
-	if ( ! empty( $auto_login ) ) {
+	// Only autologin for requests to the homepage.
+	if ( ! empty( $auto_login ) && ( $_SERVER['REQUEST_URI'] == '/' ) ) {
 		$password = get_option( 'jurassic_ninja_admin_password' );
 		$creds = array();
 		$creds['user_login'] = 'demo';
