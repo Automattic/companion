@@ -131,7 +131,7 @@ function companion_site_uses_https() {
 }
 
 function companion_add_jetpack_constants_option_page() {
-	if ( ! companion_is_jetpack_here() ) {
+	if ( ! companion_is_jetpack_here() || class_exists( 'Jetpack_Beta' ) ) {
 		return;
 	}
 	if ( ! class_exists( 'RationalOptionPages' ) ) {
@@ -199,14 +199,14 @@ function companion_get_option( $slug, $default = null ) {
 
 
 function companion_tamper_with_jetpack_constants() {
-	if ( companion_get_option( 'jetpack_sandbox_domain', '' ) ) {
+	if ( ! defined( 'JETPACK__SANDBOX_DOMAIN' ) && companion_get_option( 'jetpack_sandbox_domain', '' ) ) {
 		define( 'JETPACK__SANDBOX_DOMAIN', companion_get_option( 'jetpack_sandbox_domain', '' ) );
 	}
 
-	if ( companion_get_option( 'jetpack_protect_api_host', '' ) ) {
+	if ( ! defined( 'JETPACK_PROTECT__API_HOST' ) && companion_get_option( 'jetpack_protect_api_host', '' ) ) {
 		define( 'JETPACK_PROTECT__API_HOST', companion_get_option( 'jetpack_protect_api_host', '' ) );
 	}
-	if ( companion_get_option( 'jetpack_beta_blocks', '' ) ) {
+	if ( ! defined( 'JETPACK_BETA_BLOCKS' ) && companion_get_option( 'jetpack_beta_blocks', '' ) ) {
 		define( 'JETPACK_BETA_BLOCKS', companion_get_option( 'jetpack_beta_blocks', '' ) ? true : false );
 	}
 }
