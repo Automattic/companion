@@ -131,7 +131,9 @@ function companion_site_uses_https() {
 }
 
 function companion_add_jetpack_constants_option_page() {
-	if ( ! companion_is_jetpack_here() ) {
+	$jetpack_beta_present_and_supports_jetpack_constants_settings = class_exists( 'Jetpack_Beta' ) &&
+		version_compare( JPBETA_VERSION, '2', '>' );
+	if ( ! companion_is_jetpack_here() || $jetpack_beta_present_and_supports_jetpack_constants_settings ) {
 		return;
 	}
 	if ( ! class_exists( 'RationalOptionPages' ) ) {
