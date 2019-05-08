@@ -37,28 +37,69 @@ function companion_admin_notices() {
 	$admin_password = is_multisite() ? get_blog_option( 1, $password_option_key ) : get_option( $password_option_key );
 	$sysuser = is_multisite() ? get_blog_option( 1, $sysuser_option_key ) : get_option( $sysuser_option_key );
 	$host = parse_url( network_site_url(), PHP_URL_HOST );
+	$sftp = 'sftp://'. $sysuser . ':' . $admin_password . '@' . $host . ':22/' . get_home_path(); // Extra `/` after port is needed for some SFTP apps
+	$ssh = 'ssh ' . $sysuser . '@'. $host;
 	?>
 	<div class="notice notice-success is-dismissible">
-		<h3><?php echo esc_html__( 'Welcome to Jurassic Ninja!' ); ?></h3>
-		<p><strong><span id="jurassic_url"><?php echo esc_html( network_site_url() ); ?></span></strong> <?php echo esc_html__( 'will be destroyed in 7 days. Sign out and sign in to get 7 more days.' ); ?></p>
+		<h3 class="jurassic_ninja_welcome">
+			<img src="https://i2.wp.com/jurassic.ninja/wp-content/uploads/2018/05/jurassicninja-transparent.png?w=80&ssl=1" alt="">
+			<?php echo esc_html__( 'Welcome to Jurassic Ninja!' ); ?>
+		</h3>
 		<p>
-			<strong>WP user:</strong> <code><span id="jurassic_username">demo</span></code>
-			<strong>SSH:</strong> <code><span id="jurassic_ssh_command">ssh <?php echo esc_html( $sysuser ); ?>@<?php echo esc_html( $host ); ?></span></code>
+			<strong><code class="jurassic_ninja_field"><?php echo esc_html( network_site_url() ); ?></code></strong>
+			<?php echo esc_html__( 'will be destroyed in 7 days. Sign out and sign in to get 7 more days.' ); ?>
 		</p>
 		<p>
-			<strong>WP/SSH password:</strong> <code><span id="jurassic_password"><?php echo esc_html( $admin_password ); ?></span></code>
-			<strong>SSH server path:</strong> <code><span id="jurassic_ssh_server_path"><?php echo esc_html( get_home_path() ); ?></span></code>
+			<strong>WP user:</strong> <code class="jurassic_ninja_field">demo</code>
+			<strong>WP/SSH password:</strong> <code class="jurassic_ninja_field"><?php echo esc_html( $admin_password ); ?></code>
 		</p>
 		<p>
-			<strong>SFTP:</strong><code><span id="jurassic_sftp_url">sftp://<?php echo esc_html( $sysuser ); ?>:<?php echo esc_html( $admin_password ); ?>@<?php echo esc_html( $host ); ?>:22/<?php echo esc_html( get_home_path() ); ?></span></code>
+			<strong>SFTP:</strong><code class="jurassic_ninja_field"><?php echo esc_html( $sftp ); ?></span></code>
+		</p>
+		<p>
+			<strong>SSH:</strong> <code class="jurassic_ninja_field"><?php echo esc_html( $ssh ); ?></code>
+		</p>
+		<p>
+			<strong>Server path:</strong> <code class="jurassic_ninja_field"><?php echo esc_html( get_home_path() ); ?></code>
 		</p>
 	</div>
 	<style type="text/css">
-		#jurassic_ssh_command,
-		#jurassic_sftp_url {
+		.jurassic_ninja_welcome {
+			display: flex;
+			align-items: center;
+		}
+		.jurassic_ninja_welcome img {
+			margin: 0 5px 0 0;
+			max-width: 40px;
+		}
+		.jurassic_ninja_field {
 			user-select: all;
+			cursor: copy;
 		}
 	</style>
+	<script>
+		/**
+		 * Helper to copy-paste credential fields in notice
+		 */
+		function jurassic_ninja_clippy( str) {
+			var el = document.createElement( 'input' );
+			el.value = str;
+			document.body.appendChild( el );
+			el.select();
+			document.execCommand( 'copy' );
+			document.body.removeChild( el );
+		};
+
+		var jurassic_ninja_fields = document.getElementsByClassName( 'jurassic_ninja_field' );
+
+		// IE11 compatible way to loop this
+		// https://developer.mozilla.org/en-US/docs/Web/API/NodeList#Example
+		Array.prototype.forEach.call( jurassic_ninja_fields, function ( field ) {
+			field.addEventListener( 'click', function( e ) {
+				jurassic_ninja_clippy( e.target.innerText );
+			} );
+		} );
+	</script>
 	<?php
 }
 
