@@ -37,7 +37,7 @@ function companion_admin_notices() {
 	$admin_password = is_multisite() ? get_blog_option( 1, $password_option_key ) : get_option( $password_option_key );
 	$sysuser = is_multisite() ? get_blog_option( 1, $sysuser_option_key ) : get_option( $sysuser_option_key );
 	$host = parse_url( network_site_url(), PHP_URL_HOST );
-	$sftp = 'sftp://'. $sysuser . ':' . $admin_password . '@' . $host . ':22' . get_home_path();
+	$sftp = 'sftp://'. $sysuser . ':' . $admin_password . '@' . $host . ':22/' . get_home_path(); // Extra `/` after port is needed for some SFTP apps
 	$ssh = 'ssh ' . $sysuser . '@'. $host;
 	?>
 	<div class="notice notice-success is-dismissible">
