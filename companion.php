@@ -46,12 +46,12 @@ function companion_admin_notices() {
 			<?php echo esc_html__( 'Welcome to Jurassic Ninja!' ); ?>
 		</h3>
 		<p>
-			<strong><code class="jurassic_ninja_field"><?php echo esc_html( network_site_url() ); ?></code></strong>
+			<strong><code id="jurassic_url" class="jurassic_ninja_field"><?php echo esc_html( network_site_url() ); ?></code></strong>
 			<?php echo esc_html__( 'will be destroyed in 7 days. Sign out and sign in to get 7 more days.' ); ?>
 		</p>
 		<p>
-			<strong>WP user:</strong> <code class="jurassic_ninja_field">demo</code>
-			<strong>WP/SSH password:</strong> <code class="jurassic_ninja_field"><?php echo esc_html( $admin_password ); ?></code>
+			<strong>WP user:</strong> <code id="jurassic_username" class="jurassic_ninja_field">demo</code>
+			<strong>WP/SSH password:</strong> <code id="jurassic_password" class="jurassic_ninja_field"><?php echo esc_html( $admin_password ); ?></code>
 		</p>
 		<p>
 			<strong>SFTP:</strong><code class="jurassic_ninja_field"><?php echo esc_html( $sftp ); ?></span></code>
