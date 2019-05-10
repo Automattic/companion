@@ -3,7 +3,7 @@
 Plugin Name: Companion Plugin
 Plugin URI: https://github.com/Automattic/companion
 Description: Helps keep the launched WordPress in order.
-Version: 1.8
+Version: 1.9
 Author: Osk
 */
 
@@ -24,6 +24,23 @@ add_action( 'pre_current_active_plugins', 'companion_hide_plugin' );
  */
 companion_tamper_with_jetpack_constants();
 add_action( 'init', 'companion_add_jetpack_constants_option_page' );
+
+/**
+ * Output a string that users can copy by clicking.
+ * For CSS and JS, see `companion_admin_notices()`
+ *
+ * @param string $str Field content that will be shown and copied to clipboard
+ * @param string $id Field ID that is used by automated testing suites
+ */
+function companion_admin_notice_field( $str, $id='' ) {
+	echo '<code';
+	echo ' class="jurassic_ninja_field"';
+	echo ' title="' . esc_html__( 'Click to copy to clipboard' ) . '"';
+	if ( ! empty( $id ) ) {
+		echo ' id="'. esc_attr( $id ) . '"';
+	}
+	echo '>' . esc_html( $str ) . '</code>';
+}
 
 function companion_admin_notices() {
 	if ( function_exists( 'get_current_screen' ) ) {
@@ -46,21 +63,27 @@ function companion_admin_notices() {
 			<?php echo esc_html__( 'Welcome to Jurassic Ninja!' ); ?>
 		</h3>
 		<p>
-			<strong><code id="jurassic_url" class="jurassic_ninja_field"><?php echo esc_html( network_site_url() ); ?></code></strong>
+			<strong><?php companion_admin_notice_field( network_site_url(), 'jurassic_url' ); ?></strong>
 			<?php echo esc_html__( 'will be destroyed in 7 days. Sign out and sign in to get 7 more days.' ); ?>
 		</p>
 		<p>
-			<strong>WP user:</strong> <code id="jurassic_username" class="jurassic_ninja_field">demo</code>
-			<strong>WP/SSH password:</strong> <code id="jurassic_password" class="jurassic_ninja_field"><?php echo esc_html( $admin_password ); ?></code>
+			<strong>WP user:</strong>
+			<?php companion_admin_notice_field( 'demo', 'jurassic_username' ); ?>
+
+			<strong>WP/SSH password:</strong>
+			<?php companion_admin_notice_field( $admin_password, 'jurassic_password' ); ?>
 		</p>
 		<p>
-			<strong>SFTP:</strong><code class="jurassic_ninja_field"><?php echo esc_html( $sftp ); ?></span></code>
+			<strong>SFTP:</strong>
+			<?php companion_admin_notice_field( $sftp ); ?>
 		</p>
 		<p>
-			<strong>SSH:</strong> <code class="jurassic_ninja_field"><?php echo esc_html( $ssh ); ?></code>
+			<strong>SSH:</strong>
+			<?php companion_admin_notice_field( $ssh ); ?>
 		</p>
 		<p>
-			<strong>Server path:</strong> <code class="jurassic_ninja_field"><?php echo esc_html( get_home_path() ); ?></code>
+			<strong>Server path:</strong>
+			<?php companion_admin_notice_field( get_home_path() ); ?>
 		</p>
 	</div>
 	<style type="text/css">
@@ -75,6 +98,13 @@ function companion_admin_notices() {
 		.jurassic_ninja_field {
 			user-select: all;
 			cursor: copy;
+		}
+		/* https://make.wordpress.org/design/handbook/design-guide/foundations/colors/ */
+		.jurassic_ninja_field:hover {
+			background-color: #d7dade; /* Light gray 600 */
+		}
+		.jurassic_ninja_field:active {
+			background-color: #ffc733; /* Accent yellow tint 20% */
 		}
 	</style>
 	<script>
