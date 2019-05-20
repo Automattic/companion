@@ -188,8 +188,8 @@ function companion_add_jetpack_constants_option_page() {
 	) . '</strong>';
 
 	$calypso_envs = array(
-		'develop'   => 'calypso.localhost:3000',
-		'wpcalypso' => 'wpcalypso.wordpress.com',
+		'development' => 'calypso.localhost:3000',
+		'wpcalypso'   => 'wpcalypso.wordpress.com',
 	);
 
 	$calypso_env_quick_selector = '';
