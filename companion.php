@@ -3,7 +3,7 @@
 Plugin Name: Companion Plugin
 Plugin URI: https://github.com/Automattic/companion
 Description: Helps keep the launched WordPress in order.
-Version: 1.8
+Version: 1.9
 Author: Osk
 */
 
@@ -187,6 +187,22 @@ function companion_add_jetpack_constants_option_page() {
 		'<code>JETPACK__SANDBOX_DOMAIN</code>'
 	) . '</strong>';
 
+	$calypso_envs = array(
+		'development' => 'calypso.localhost:3000',
+		'wpcalypso'   => 'wpcalypso.wordpress.com',
+	);
+
+	$calypso_env_quick_selector = '';
+	foreach( $calypso_envs as $env => $url ) {
+		$calypso_env_quick_selector .=
+			'<p>' .
+			'<button class="button code" onClick="document.getElementById(\'calypso_env\').value = \'' . $env . '\';">' .
+			$env .
+			'</button> ' .
+			'<code>' . $url . '</code>' .
+			'</p>';
+	}
+
 	$options_page = array(
 		'companion' => array(
 			'page_title' => __( 'Jurassic Ninja Tweaks for Jetpack Constants', 'companion' ),
@@ -211,7 +227,7 @@ function companion_add_jetpack_constants_option_page() {
 							'id' => 'jetpack_beta_blocks',
 							'title' => __( 'JETPACK_BETA_BLOCKS', 'companion' ),
 							'text' =>
-								esc_html__( 'Check to enable Jetpack blocks for Gutenberg that are on Beta stage of development', 'companion' ),
+								esc_html__( 'Load Jetpack block-editor extensions that are on beta stage of development', 'companion' ),
 							'type' => 'checkbox',
 						),
 						'jetpack_protect_api_host' => array(
@@ -222,6 +238,13 @@ function companion_add_jetpack_constants_option_page() {
 								'<code>' . esc_html( JETPACK_PROTECT__API_HOST ) . '</code>'
 							),
 							'placeholder' => esc_attr( JETPACK_PROTECT__API_HOST ),
+						),
+						'calypso_env' => array(
+							'id' => 'calypso_env',
+							'title' => __( 'CALYPSO_ENV', 'companion' ),
+							'text' =>
+								esc_html__( 'Configure which version of Calypso Jetpack should use for connection flow.', 'companion' ) .
+								$calypso_env_quick_selector
 						),
 					),
 				),
@@ -245,11 +268,13 @@ function companion_tamper_with_jetpack_constants() {
 	if ( ! ( defined( 'JETPACK__SANDBOX_DOMAIN' ) && JETPACK__SANDBOX_DOMAIN ) && companion_get_option( 'jetpack_sandbox_domain', '' ) ) {
 		define( 'JETPACK__SANDBOX_DOMAIN', companion_get_option( 'jetpack_sandbox_domain', '' ) );
 	}
-
 	if ( ! ( defined( 'JETPACK_PROTECT__API_HOST' ) && JETPACK_PROTECT__API_HOST ) && companion_get_option( 'jetpack_protect_api_host', '' ) ) {
 		define( 'JETPACK_PROTECT__API_HOST', companion_get_option( 'jetpack_protect_api_host', '' ) );
 	}
 	if ( ! ( defined( 'JETPACK_BETA_BLOCKS' ) && JETPACK_BETA_BLOCKS ) && companion_get_option( 'jetpack_beta_blocks', '' ) ) {
 		define( 'JETPACK_BETA_BLOCKS', companion_get_option( 'jetpack_beta_blocks', '' ) ? true : false );
+	}
+	if ( ! ( defined( 'CALYPSO_ENV' ) && CALYPSO_ENV ) && companion_get_option( 'calypso_env', '' ) ) {
+		define( 'CALYPSO_ENV', companion_get_option( 'jetpack_protect_api_host', '' ) );
 	}
 }
