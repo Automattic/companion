@@ -223,6 +223,15 @@ function companion_add_jetpack_constants_option_page() {
 							),
 							'placeholder' => esc_attr( JETPACK_PROTECT__API_HOST ),
 						),
+						'jetpack_should_use_connection_iframe' => array(
+							'id' => 'jetpack_should_use_connection_iframe',
+							'title' => __( 'JETPACK_SHOULD_USE_CONNECTION_IFRAME', 'companion' ),
+							'text' => sprintf(
+								esc_html__( "Use connection iFrame", 'companion' )
+							),
+							'placeholder' => esc_attr( JETPACK_SHOULD_USE_CONNECTION_IFRAME ),
+							'type' => 'checkbox',
+						),
 					),
 				),
 			),
@@ -251,5 +260,8 @@ function companion_tamper_with_jetpack_constants() {
 	}
 	if ( ! ( defined( 'JETPACK_BETA_BLOCKS' ) && JETPACK_BETA_BLOCKS ) && companion_get_option( 'jetpack_beta_blocks', '' ) ) {
 		define( 'JETPACK_BETA_BLOCKS', companion_get_option( 'jetpack_beta_blocks', '' ) ? true : false );
+	}
+	if ( ! ( defined( 'JETPACK_SHOULD_USE_CONNECTION_IFRAME' ) && JETPACK_SHOULD_USE_CONNECTION_IFRAME ) && companion_get_option( 'jetpack_should_use_connection_iframe', '' ) ) {
+		define( 'JETPACK_SHOULD_USE_CONNECTION_IFRAME', companion_get_option( 'jetpack_should_use_connection_iframe', '' ) ? true : false );
 	}
 }
