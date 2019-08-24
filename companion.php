@@ -229,7 +229,6 @@ function companion_add_jetpack_constants_option_page() {
 							'text' => sprintf(
 								esc_html__( "Use connection iFrame", 'companion' )
 							),
-							'placeholder' => esc_attr( JETPACK_SHOULD_USE_CONNECTION_IFRAME ),
 							'type' => 'checkbox',
 						),
 					),
