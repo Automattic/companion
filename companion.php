@@ -7,6 +7,14 @@ Version: 1.10
 Author: Osk
 */
 
+// Do nothing if it happens to be running in an Atomic site.
+// This may happen when importing a full Jurassic Ninja site into an Atomic one
+// and this plugin is eventually imported into the site.
+if ( defined( 'IS_ATOMIC' ) && IS_ATOMIC ) {
+	return true;
+}
+
+// Do a minimal set of stuff on a multisite installation on sites other than the main one
 if ( is_multisite() && ! is_main_site() ) {
 	add_action( 'pre_current_active_plugins', 'companion_hide_plugin' );
 	add_action( 'admin_notices', 'companion_admin_notices' );
