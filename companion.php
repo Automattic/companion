@@ -62,7 +62,7 @@ function companion_admin_notices() {
 			<strong>WP/SSH password:</strong> <code id="jurassic_password" class="jurassic_ninja_field"><?php echo esc_html( $admin_password ); ?></code>
 		</p>
 		<p>
-			<strong>SFTP:</strong><code class="jurassic_ninja_field"><?php echo esc_html( $sftp ); ?></span></code>
+			<strong>SFTP:</strong><code class="jurassic_ninja_field"><?php echo esc_html( $sftp ); ?></code>
 		</p>
 		<p>
 			<strong>SSH:</strong> <code class="jurassic_ninja_field"><?php echo esc_html( $ssh ); ?></code>
