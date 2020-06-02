@@ -124,7 +124,6 @@ function companion_hide_plugin() {
 
 function companion_wp_login() {
 	global $companion_api_base_url;
-	delete_transient( '_wc_activation_redirect' );
 
 	if ( defined( 'WP_CLI' ) && WP_CLI ) {
 		return;
