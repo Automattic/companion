@@ -55,7 +55,7 @@ function companion_admin_notices() {
 		</h3>
 		<p>
 			<strong><code id="jurassic_url" class="jurassic_ninja_field"><?php echo esc_html( network_site_url() ); ?></code></strong>
-			<?php echo esc_html__( 'will be destroyed in 7 days. Sign out and sign in to get 7 more days.' ); ?>
+			<?php echo esc_html__( 'will be destroyed in 7 days.' ); ?>
 		</p>
 		<p>
 			<strong>WP user:</strong> <code id="jurassic_username" class="jurassic_ninja_field">demo</code>
@@ -82,7 +82,7 @@ function companion_admin_notices() {
 		}
 		.jurassic_ninja_field {
 			user-select: all;
-			cursor: copy;
+			cursor: pointer;
 		}
 	</style>
 	<script>
