@@ -3,7 +3,7 @@
 Plugin Name: Companion Plugin
 Plugin URI: https://github.com/Automattic/companion
 Description: Helps keep the launched WordPress in order.
-Version: 1.12
+Version: 1.13
 Author: Osk
 */
 
@@ -126,11 +126,22 @@ function companion_admin_notices() {
 			field.addEventListener( 'click', function( e ) {
 				e.preventDefault();
 				e.stopPropagation();
-				const str = 
-					e.target.getAttribute( 'target' ) ?
-						document.getElementById( e.target.getAttribute( 'target' ) ).innerText :
-						document.getElementById( e.target.parentNode.getAttribute( 'target' ) ).innerText;
+				// These html entities are represented by images in the end
+				// So we need to figure out if the target of the click is a link or an img
+				const isChild = ! e.target.getAttribute( 'target' );
+				const el = ! isChild ?
+					document.getElementById( e.target.getAttribute( 'target' ) ) :
+					document.getElementById( e.target.parentNode.getAttribute( 'target' ) );
+				const str = el.innerText; 
 				jurassic_ninja_clippy( str );
+				// Transition to checkmark and back
+				if ( isChild ) {
+					const parent = e.target.parentNode;
+					parent.innerHTML = '&#10004;';
+					setTimeout( () => {
+						parent.innerHTML= '&#x1f4cb;';
+					}, 1000 );
+				}
 			} );
 		} );
 	</script>
