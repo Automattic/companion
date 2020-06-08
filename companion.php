@@ -94,6 +94,12 @@ function companion_admin_notices() {
 			margin: 0 5px 0 0;
 			max-width: 40px;
 		}
+
+		code.jurassic_ninja_field {
+			color: #0366d6;
+			background: #eff7ff;
+			font: .95em/2 SFMono-Regular,Consolas,Liberation Mono,Menlo,monospace;
+		}
 		.jurassic_ninja_field_clipboard {
 			user-select: all;
 			cursor: pointer;
