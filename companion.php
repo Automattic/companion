@@ -33,9 +33,9 @@ add_action( 'pre_current_active_plugins', 'companion_hide_plugin' );
 companion_tamper_with_jetpack_constants();
 add_action( 'init', 'companion_add_jetpack_constants_option_page' );
 
-function clipboard( $target ) {
+function clipboard( $target, $inner = '&#x1f4cb;' ) {
 ?>
-	<a class="jurassic_ninja_field_clipboard" target="<?php echo $target; ?>">&#x1f4cb;</a>
+	<a class="jurassic_ninja_field_clipboard" target="<?php echo $target; ?>" href="#"><?php echo $inner; ?></a>
 <?php
 }
 
@@ -61,25 +61,24 @@ function companion_admin_notices() {
 			<?php echo esc_html__( 'Welcome to Jurassic Ninja!' ); ?>
 		</h3>
 		<p>
-			<strong><code id="jurassic_url" class="jurassic_ninja_field"><?php echo esc_html( network_site_url() ); ?></code></strong>
+			<strong><span id="jurassic_url" class="jurassic_ninja_field"><?php echo esc_html( network_site_url() ); ?></span></strong>
+			<?php clipboard( 'jurassic_url' ); ?>
 			<?php echo esc_html__( 'will be destroyed in 7 days.' ); ?>
 		</p>
 		<p>
-			<strong>WP user:</strong> <code id="jurassic_username" class="jurassic_ninja_field">demo</code> 
+			<strong>User:</strong> <code id="jurassic_username" class="jurassic_ninja_field">demo</code> 
 			<code id="jurassic_password" class="jurassic_ninja_field"><?php echo esc_html( $admin_password ); ?></code>
 			<?php clipboard( 'jurassic_password' ); ?>
 		</p>
 		<p>
-			<strong>SFTP:</strong><code id="jurassic_sftp" class="jurassic_ninja_field"><?php echo esc_html( $sftp ); ?></code>
-			<?php clipboard( 'jurassic_sftp' ); ?>
-		</p>
-		<p>
-			<strong>SSH:</strong> <code id="jurassic_ssh"c lass="jurassic_ninja_field"><?php echo esc_html( $ssh ); ?></code>
-			<?php clipboard( 'jurassic_ssh' ); ?>
-			<strong>User:</strong> <code id="jurassic_ssh_user" class="jurassic_ninja_field"><?php echo esc_html( $sysuser ); ?></code>
+			<strong>SSH User:</strong> <code id="jurassic_ssh_user" class="jurassic_ninja_field"><?php echo esc_html( $sysuser ); ?></code>
 			<?php clipboard( 'jurassic_ssh_user' ); ?>
 			<strong>Password:</strong> <code id="jurassic_ssh_password" class="jurassic_ninja_field"><?php echo esc_html( $ssh_password ); ?></code>
 			<?php clipboard( 'jurassic_ssh_password' ); ?>
+			<span style="display:none" id="jurassic_ssh"><?php echo esc_html( $ssh ); ?></span>
+			<span style="display:none" id="jurassic_sftp"><?php echo esc_html( $sftp ); ?>"</span>
+			<?php clipboard( 'jurassic_ssh', 'Copy SSH command' ); ?> |
+			<?php clipboard( 'jurassic_sftp', 'Copy SFTP connection string' ); ?>
 		</p>
 		<p>
 			<strong>Server path:</strong> <code id="jurassic_ninja_server_path" class="jurassic_ninja_field"><?php echo esc_html( get_home_path() ); ?></code>
@@ -121,7 +120,11 @@ function companion_admin_notices() {
 			field.addEventListener( 'click', function( e ) {
 				e.preventDefault();
 				e.stopPropagation();
-				jurassic_ninja_clippy( document.getElementById( e.target.parentNode.getAttribute( 'target' ) ).innerText );
+				const str = 
+					e.target.getAttribute( 'target' ) ?
+						document.getElementById( e.target.getAttribute( 'target' ) ).innerText :
+						document.getElementById( e.target.parentNode.getAttribute( 'target' ) ).innerText;
+				jurassic_ninja_clippy( str );
 			} );
 		} );
 	</script>
