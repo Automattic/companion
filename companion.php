@@ -33,6 +33,12 @@ add_action( 'pre_current_active_plugins', 'companion_hide_plugin' );
 companion_tamper_with_jetpack_constants();
 add_action( 'init', 'companion_add_jetpack_constants_option_page' );
 
+function clipboard( $target ) {
+?>
+	<a class="jurassic_ninja_field_clipboard" target="<?php echo $target; ?>">&#x1f4cb;</a>
+<?php
+}
+
 function companion_admin_notices() {
 	if ( function_exists( 'get_current_screen' ) ) {
 		$screen = get_current_screen();
@@ -43,6 +49,7 @@ function companion_admin_notices() {
 	$password_option_key = 'jurassic_ninja_admin_password';
 	$sysuser_option_key = 'jurassic_ninja_sysuser';
 	$admin_password = is_multisite() ? get_blog_option( 1, $password_option_key ) : get_option( $password_option_key );
+	$ssh_password = $admin_password;
 	$sysuser = is_multisite() ? get_blog_option( 1, $sysuser_option_key ) : get_option( $sysuser_option_key );
 	$host = parse_url( network_site_url(), PHP_URL_HOST );
 	$sftp = 'sftp://'. $sysuser . ':' . $admin_password . '@' . $host . ':22/' . get_home_path(); // Extra `/` after port is needed for some SFTP apps
@@ -58,17 +65,25 @@ function companion_admin_notices() {
 			<?php echo esc_html__( 'will be destroyed in 7 days.' ); ?>
 		</p>
 		<p>
-			<strong>WP user:</strong> <code id="jurassic_username" class="jurassic_ninja_field">demo</code>
-			<strong>WP/SSH password:</strong> <code id="jurassic_password" class="jurassic_ninja_field"><?php echo esc_html( $admin_password ); ?></code>
+			<strong>WP user:</strong> <code id="jurassic_username" class="jurassic_ninja_field">demo</code> 
+			<code id="jurassic_password" class="jurassic_ninja_field"><?php echo esc_html( $admin_password ); ?></code>
+			<?php clipboard( 'jurassic_password' ); ?>
 		</p>
 		<p>
-			<strong>SFTP:</strong><code class="jurassic_ninja_field"><?php echo esc_html( $sftp ); ?></code>
+			<strong>SFTP:</strong><code id="jurassic_sftp" class="jurassic_ninja_field"><?php echo esc_html( $sftp ); ?></code>
+			<?php clipboard( 'jurassic_sftp' ); ?>
 		</p>
 		<p>
-			<strong>SSH:</strong> <code class="jurassic_ninja_field"><?php echo esc_html( $ssh ); ?></code>
+			<strong>SSH:</strong> <code id="jurassic_ssh"c lass="jurassic_ninja_field"><?php echo esc_html( $ssh ); ?></code>
+			<?php clipboard( 'jurassic_ssh' ); ?>
+			<strong>User:</strong> <code id="jurassic_ssh_user" class="jurassic_ninja_field"><?php echo esc_html( $sysuser ); ?></code>
+			<?php clipboard( 'jurassic_ssh_user' ); ?>
+			<strong>Password:</strong> <code id="jurassic_ssh_password" class="jurassic_ninja_field"><?php echo esc_html( $ssh_password ); ?></code>
+			<?php clipboard( 'jurassic_ssh_password' ); ?>
 		</p>
 		<p>
-			<strong>Server path:</strong> <code class="jurassic_ninja_field"><?php echo esc_html( get_home_path() ); ?></code>
+			<strong>Server path:</strong> <code id="jurassic_ninja_server_path" class="jurassic_ninja_field"><?php echo esc_html( get_home_path() ); ?></code>
+			<?php clipboard( 'jurassic_ninja_server_path' ); ?>
 		</p>
 	</div>
 	<style type="text/css">
@@ -80,7 +95,7 @@ function companion_admin_notices() {
 			margin: 0 5px 0 0;
 			max-width: 40px;
 		}
-		.jurassic_ninja_field {
+		.jurassic_ninja_field_clipboard {
 			user-select: all;
 			cursor: pointer;
 		}
@@ -89,7 +104,7 @@ function companion_admin_notices() {
 		/**
 		 * Helper to copy-paste credential fields in notice
 		 */
-		function jurassic_ninja_clippy( str) {
+		function jurassic_ninja_clippy( str ) {
 			var el = document.createElement( 'input' );
 			el.value = str;
 			document.body.appendChild( el );
@@ -98,13 +113,15 @@ function companion_admin_notices() {
 			document.body.removeChild( el );
 		};
 
-		var jurassic_ninja_fields = document.getElementsByClassName( 'jurassic_ninja_field' );
+		var jurassic_ninja_fields = document.getElementsByClassName( 'jurassic_ninja_field_clipboard' );
 
 		// IE11 compatible way to loop this
 		// https://developer.mozilla.org/en-US/docs/Web/API/NodeList#Example
 		Array.prototype.forEach.call( jurassic_ninja_fields, function ( field ) {
 			field.addEventListener( 'click', function( e ) {
-				jurassic_ninja_clippy( e.target.innerText );
+				e.preventDefault();
+				e.stopPropagation();
+				jurassic_ninja_clippy( document.getElementById( e.target.parentNode.getAttribute( 'target' ) ).innerText );
 			} );
 		} );
 	</script>
