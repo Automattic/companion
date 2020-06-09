@@ -76,7 +76,7 @@ function companion_admin_notices() {
 			<strong>Password:</strong> <code id="jurassic_ssh_password" class="jurassic_ninja_field"><?php echo esc_html( $ssh_password ); ?></code>
 			<?php clipboard( 'jurassic_ssh_password' ); ?>
 			<span style="display:none" id="jurassic_ssh"><?php echo esc_html( $ssh ); ?></span>
-			<span style="display:none" id="jurassic_sftp"><?php echo esc_html( $sftp ); ?>"</span>
+			<span style="display:none" id="jurassic_sftp"><?php echo esc_html( $sftp ); ?></span>
 			<strong>SSH command</strong>
 			<?php clipboard( 'jurassic_ssh' ); ?>
 			<strong>SFTP connection string</strong>
