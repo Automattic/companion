@@ -3,7 +3,7 @@
 Plugin Name: Companion Plugin
 Plugin URI: https://github.com/Automattic/companion
 Description: Helps keep the launched WordPress in order.
-Version: 1.13
+Version: 1.14
 Author: Osk
 */
 
@@ -76,9 +76,11 @@ function companion_admin_notices() {
 			<strong>Password:</strong> <code id="jurassic_ssh_password" class="jurassic_ninja_field"><?php echo esc_html( $ssh_password ); ?></code>
 			<?php clipboard( 'jurassic_ssh_password' ); ?>
 			<span style="display:none" id="jurassic_ssh"><?php echo esc_html( $ssh ); ?></span>
-			<span style="display:none" id="jurassic_sftp"><?php echo esc_html( $sftp ); ?>"</span>
-			<?php clipboard( 'jurassic_ssh', 'Copy SSH command' ); ?> |
-			<?php clipboard( 'jurassic_sftp', 'Copy SFTP connection string' ); ?>
+			<span style="display:none" id="jurassic_sftp"><?php echo esc_html( $sftp ); ?></span>
+			<strong>SSH command</strong>
+			<?php clipboard( 'jurassic_ssh' ); ?>
+			<strong>SFTP connection string</strong>
+			<?php clipboard( 'jurassic_sftp' ); ?>
 		</p>
 		<p>
 			<strong>Server path:</strong> <code id="jurassic_ninja_server_path" class="jurassic_ninja_field"><?php echo esc_html( get_home_path() ); ?></code>
