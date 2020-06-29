@@ -3,7 +3,7 @@
 Plugin Name: Companion Plugin
 Plugin URI: https://github.com/Automattic/companion
 Description: Helps keep the launched WordPress in order.
-Version: 1.14
+Version: 1.15
 Author: Osk
 */
 
@@ -281,6 +281,13 @@ function companion_add_jetpack_constants_option_page() {
 							),
 							'type' => 'checkbox',
 						),
+						'jetpack_dev_debug' => array(
+							'id' => 'jetpack_dev_debug',
+							'title' => __( 'JETPACK_DEV_DEBUG', 'companion' ),
+							'text' =>
+								esc_html__( 'Check to enable development mode, and access features that can be used without a connection to WordPress.com', 'companion' ),
+							'type' => 'checkbox',
+						),
 					),
 				),
 			),
@@ -312,5 +319,8 @@ function companion_tamper_with_jetpack_constants() {
 	}
 	if ( ! ( defined( 'JETPACK_SHOULD_USE_CONNECTION_IFRAME' ) && JETPACK_SHOULD_USE_CONNECTION_IFRAME ) && companion_get_option( 'jetpack_should_use_connection_iframe', '' ) ) {
 		define( 'JETPACK_SHOULD_USE_CONNECTION_IFRAME', companion_get_option( 'jetpack_should_use_connection_iframe', '' ) ? true : false );
+	}
+	if ( ! ( defined( 'JETPACK_DEV_DEBUG' ) && JETPACK_DEV_DEBUG ) && companion_get_option( 'jetpack_dev_debug', '' ) ) {
+		define( 'JETPACK_DEV_DEBUG', companion_get_option( 'jetpack_dev_debug', '' ) ? true : false );
 	}
 }
