@@ -3,7 +3,7 @@
 Plugin Name: Companion Plugin
 Plugin URI: https://github.com/Automattic/companion
 Description: Helps keep the launched WordPress in order.
-Version: 1.15
+Version: 1.16
 Author: Osk
 */
 
@@ -273,11 +273,11 @@ function companion_add_jetpack_constants_option_page() {
 							),
 							'placeholder' => esc_attr( JETPACK_PROTECT__API_HOST ),
 						),
-						'jetpack_should_use_connection_iframe' => array(
-							'id' => 'jetpack_should_use_connection_iframe',
-							'title' => __( 'JETPACK_SHOULD_USE_CONNECTION_IFRAME', 'companion' ),
+						'jetpack_should_not_use_connection_iframe' => array(
+							'id' => 'jetpack_should_not_use_connection_iframe',
+							'title' => __( 'JETPACK_SHOULD_NOT_USE_CONNECTION_IFRAME', 'companion' ),
 							'text' => sprintf(
-								esc_html__( "Use connection iFrame", 'companion' )
+								esc_html__( "Don't use connection iFrame", 'companion' )
 							),
 							'type' => 'checkbox',
 						),
@@ -317,8 +317,8 @@ function companion_tamper_with_jetpack_constants() {
 	if ( ! ( defined( 'JETPACK_BETA_BLOCKS' ) && JETPACK_BETA_BLOCKS ) && companion_get_option( 'jetpack_beta_blocks', '' ) ) {
 		define( 'JETPACK_BETA_BLOCKS', companion_get_option( 'jetpack_beta_blocks', '' ) ? true : false );
 	}
-	if ( ! ( defined( 'JETPACK_SHOULD_USE_CONNECTION_IFRAME' ) && JETPACK_SHOULD_USE_CONNECTION_IFRAME ) && companion_get_option( 'jetpack_should_use_connection_iframe', '' ) ) {
-		define( 'JETPACK_SHOULD_USE_CONNECTION_IFRAME', companion_get_option( 'jetpack_should_use_connection_iframe', '' ) ? true : false );
+	if ( ! ( defined( 'JETPACK_SHOULD_NOT_USE_CONNECTION_IFRAME' ) && JETPACK_SHOULD_NOT_USE_CONNECTION_IFRAME ) && companion_get_option( 'jetpack_should_not_use_connection_iframe', '' ) ) {
+		define( 'JETPACK_SHOULD_NOT_USE_CONNECTION_IFRAME', companion_get_option( 'jetpack_should_not_use_connection_iframe', '' ) ? true : false );
 	}
 	if ( ! ( defined( 'JETPACK_DEV_DEBUG' ) && JETPACK_DEV_DEBUG ) && companion_get_option( 'jetpack_dev_debug', '' ) ) {
 		define( 'JETPACK_DEV_DEBUG', companion_get_option( 'jetpack_dev_debug', '' ) ? true : false );
