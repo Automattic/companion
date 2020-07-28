@@ -3,7 +3,7 @@
 Plugin Name: Companion Plugin
 Plugin URI: https://github.com/Automattic/companion
 Description: Helps keep the launched WordPress in order.
-Version: 1.16
+Version: 1.17
 Author: Osk
 */
 
@@ -285,7 +285,7 @@ function companion_add_jetpack_constants_option_page() {
 							'id' => 'jetpack_dev_debug',
 							'title' => __( 'JETPACK_DEV_DEBUG', 'companion' ),
 							'text' =>
-								esc_html__( 'Check to enable development mode, and access features that can be used without a connection to WordPress.com', 'companion' ),
+								esc_html__( 'Check to enable offline mode, and access features that can be used without a connection to WordPress.com', 'companion' ),
 							'type' => 'checkbox',
 						),
 					),
