@@ -3,7 +3,7 @@
 Plugin Name: Companion Plugin
 Plugin URI: https://github.com/Automattic/companion
 Description: Helps keep the launched WordPress in order.
-Version: 1.17
+Version: 1.18
 Author: Osk
 */
 
@@ -288,6 +288,13 @@ function companion_add_jetpack_constants_option_page() {
 								esc_html__( 'Check to enable offline mode, and access features that can be used without a connection to WordPress.com', 'companion' ),
 							'type' => 'checkbox',
 						),
+						'jetpack_no_user_testing' => array(
+							'id' => 'jetpack_no_user_testing',
+							'title' => __( 'JETPACK_NO_USER_TEST_MODE', 'companion' ),
+							'text' =>
+								esc_html__( 'Check to enable No User Testing Mode. This will allow you to test the Jetpack connection without an authorized user.', 'companion' ),
+							'type' => 'checkbox',
+						),
 					),
 				),
 			),
@@ -322,5 +329,8 @@ function companion_tamper_with_jetpack_constants() {
 	}
 	if ( ! ( defined( 'JETPACK_DEV_DEBUG' ) && JETPACK_DEV_DEBUG ) && companion_get_option( 'jetpack_dev_debug', '' ) ) {
 		define( 'JETPACK_DEV_DEBUG', companion_get_option( 'jetpack_dev_debug', '' ) ? true : false );
+	}
+	if ( ! ( defined( 'JETPACK_NO_USER_TEST_MODE' ) && JETPACK_NO_USER_TEST_MODE ) && companion_get_option( 'jetpack_no_user_testing', '' ) ) {
+		define( 'JETPACK_NO_USER_TEST_MODE', companion_get_option( 'jetpack_no_user_testing', '' ) ? true : false );
 	}
 }
