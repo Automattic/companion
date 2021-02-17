@@ -253,7 +253,7 @@ class RationalOptionPages {
 						$params['callback'] = array( $this, $params['callback'] );
 					}
 			
-					call_user_func_array( 'add_settings_section', array_values( $params ) );
+					add_settings_section( ...array_values( $params ) );
 					
 					if ( !empty( $section_params['fields'] ) ) {
 						foreach ( $section_params['fields'] as $field_key => $field_params ) {
