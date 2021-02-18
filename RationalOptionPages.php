@@ -280,7 +280,7 @@ class RationalOptionPages {
 								$params['callback'] = array( $this, $params['callback'] );
 							}
 					
-							add_settings_field( ...array_values( params ) );
+							add_settings_field( ...array_values( $params ) );
 						}
 					}
 				}
