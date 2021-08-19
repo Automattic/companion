@@ -222,16 +222,17 @@ function companion_site_uses_https() {
 }
 
 function companion_add_jetpack_constants_option_page() {
-	$jetpack_beta_present_and_supports_jetpack_constants_settings = class_exists( 'Jetpack_Beta' ) &&
-		version_compare( JPBETA_VERSION, '3', '>' );
-	if ( ! companion_is_jetpack_here() || $jetpack_beta_present_and_supports_jetpack_constants_settings ) {
+	if ( class_exists( 'Jetpack_Beta' ) && version_compare( JPBETA_VERSION, '3', '>' ) ) {
 		return;
 	}
+
 	if ( ! class_exists( 'RationalOptionPages' ) ) {
 		require 'RationalOptionPages.php';
 	}
 
-	$jetpack_sandbox_domain = defined( 'JETPACK__SANDBOX_DOMAIN' ) ? JETPACK__SANDBOX_DOMAIN : '';
+	$jetpack_sandbox_domain   = defined( 'JETPACK__SANDBOX_DOMAIN' ) ? JETPACK__SANDBOX_DOMAIN : '';
+	$jetpack_protect_api_host = defined( 'JETPACK_PROTECT__API_HOST' ) ? JETPACK_PROTECT__API_HOST : '';
+
 	$deprecated = '<strong>' . sprintf(
 		esc_html__( 'This is no longer needed see %s.', 'companion' ),
 		'<code>JETPACK__SANDBOX_DOMAIN</code>'
@@ -246,7 +247,7 @@ function companion_add_jetpack_constants_option_page() {
 			'sections' => array(
 				'jetpack_tweaks' => array(
 					'title' => __( 'Sites', 'companion' ),
-					'text' => '<p>' . __( 'Configure some defaults constants used by Jetpack.', 'companion' ) . '</p>',
+					'text' => '<p>' . __( 'Configure some default constants used by Jetpack plugins.', 'companion' ) . '</p>',
 					'fields' => array(
 						'jetpack_sandbox_domain' => array(
 							'id' => 'jetpack_sandbox_domain',
@@ -269,9 +270,9 @@ function companion_add_jetpack_constants_option_page() {
 							'title' => __( 'JETPACK_PROTECT__API_HOST', 'companion' ),
 							'text' => sprintf(
 								esc_html__( "Base URL for API requests to Jetpack Protect's REST API. Current value for JETPACK_PROTECT__API_HOST: %s", 'companion' ),
-								'<code>' . esc_html( JETPACK_PROTECT__API_HOST ) . '</code>'
+								'<code>' . esc_html( $jetpack_protect_api_host ) . '</code>'
 							),
-							'placeholder' => esc_attr( JETPACK_PROTECT__API_HOST ),
+							'placeholder' => esc_attr( $jetpack_protect_api_host ),
 						),
 						'jetpack_should_not_use_connection_iframe' => array(
 							'id' => 'jetpack_should_not_use_connection_iframe',
@@ -301,10 +302,6 @@ function companion_add_jetpack_constants_option_page() {
 		),
 	);
 	new RationalOptionPages( $options_page );
-}
-
-function companion_is_jetpack_here() {
-	return class_exists( 'Jetpack' );
 }
 
 function companion_get_option( $slug, $default = null ) {
