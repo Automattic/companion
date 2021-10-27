@@ -224,18 +224,12 @@ function companion_site_uses_https() {
 function companion_add_jetpack_constants_option_page() {
 	$jetpack_beta_present_and_supports_jetpack_constants_settings = class_exists( 'Jetpack_Beta' ) &&
 		version_compare( JPBETA_VERSION, '3', '>' );
-	if ( ! companion_is_jetpack_here() || $jetpack_beta_present_and_supports_jetpack_constants_settings ) {
+	if ( $jetpack_beta_present_and_supports_jetpack_constants_settings ) {
 		return;
 	}
 	if ( ! class_exists( 'RationalOptionPages' ) ) {
 		require 'RationalOptionPages.php';
 	}
-
-	$jetpack_sandbox_domain = defined( 'JETPACK__SANDBOX_DOMAIN' ) ? JETPACK__SANDBOX_DOMAIN : '';
-	$deprecated = '<strong>' . sprintf(
-		esc_html__( 'This is no longer needed see %s.', 'companion' ),
-		'<code>JETPACK__SANDBOX_DOMAIN</code>'
-	) . '</strong>';
 
 	$options_page = array(
 		'companion' => array(
@@ -247,59 +241,64 @@ function companion_add_jetpack_constants_option_page() {
 				'jetpack_tweaks' => array(
 					'title' => __( 'Sites', 'companion' ),
 					'text' => '<p>' . __( 'Configure some defaults constants used by Jetpack.', 'companion' ) . '</p>',
-					'fields' => array(
-						'jetpack_sandbox_domain' => array(
-							'id' => 'jetpack_sandbox_domain',
-							'title' => __( 'JETPACK__SANDBOX_DOMAIN', 'companion' ),
-							'text' => sprintf(
-								esc_html__( "The domain of a WordPress.com Sandbox to which you wish to send all of Jetpack's remote requests. Must be a ___.wordpress.com subdomain with DNS permanently pointed to a WordPress.com sandbox. Current value for JETPACK__SANDBOX_DOMAIN: %s", 'companion' ),
-								'<code>' . esc_html( $jetpack_sandbox_domain ) . '</code>'
-							),
-							'placeholder' => esc_attr( $jetpack_sandbox_domain ),
-						),
-						'jetpack_beta_blocks' => array(
-							'id' => 'jetpack_beta_blocks',
-							'title' => __( 'JETPACK_BETA_BLOCKS', 'companion' ),
-							'text' =>
-								esc_html__( 'Check to enable Jetpack blocks for Gutenberg that are on Beta stage of development', 'companion' ),
-							'type' => 'checkbox',
-						),
-						'jetpack_protect_api_host' => array(
-							'id' => 'jetpack_protect_api_host',
-							'title' => __( 'JETPACK_PROTECT__API_HOST', 'companion' ),
-							'text' => sprintf(
-								esc_html__( "Base URL for API requests to Jetpack Protect's REST API. Current value for JETPACK_PROTECT__API_HOST: %s", 'companion' ),
-								'<code>' . esc_html( JETPACK_PROTECT__API_HOST ) . '</code>'
-							),
-							'placeholder' => esc_attr( JETPACK_PROTECT__API_HOST ),
-						),
-						'jetpack_should_not_use_connection_iframe' => array(
-							'id' => 'jetpack_should_not_use_connection_iframe',
-							'title' => __( 'JETPACK_SHOULD_NOT_USE_CONNECTION_IFRAME', 'companion' ),
-							'text' => sprintf(
-								esc_html__( "Don't use connection iFrame", 'companion' )
-							),
-							'type' => 'checkbox',
-						),
-						'jetpack_dev_debug' => array(
-							'id' => 'jetpack_dev_debug',
-							'title' => __( 'JETPACK_DEV_DEBUG', 'companion' ),
-							'text' =>
-								esc_html__( 'Check to enable offline mode, and access features that can be used without a connection to WordPress.com', 'companion' ),
-							'type' => 'checkbox',
-						),
-						'jetpack_no_user_testing' => array(
-							'id' => 'jetpack_no_user_testing',
-							'title' => __( 'JETPACK_NO_USER_TEST_MODE', 'companion' ),
-							'text' =>
-								esc_html__( 'Check to enable No User Testing Mode. This will allow you to test the Jetpack connection without an authorized user.', 'companion' ),
-							'type' => 'checkbox',
-						),
-					),
 				),
 			),
 		),
 	);
+
+	$jetpack_sandbox_domain = defined( 'JETPACK__SANDBOX_DOMAIN' ) ? JETPACK__SANDBOX_DOMAIN : '';
+
+	$global_fields = array(
+		'jetpack_sandbox_domain' => array(
+			'id' => 'jetpack_sandbox_domain',
+			'title' => __( 'JETPACK__SANDBOX_DOMAIN', 'companion' ),
+			'text' => sprintf(
+				esc_html__( "The domain of a WordPress.com Sandbox to which you wish to send all of Jetpack's remote requests. Must be a ___.wordpress.com subdomain with DNS permanently pointed to a WordPress.com sandbox. Current value for JETPACK__SANDBOX_DOMAIN: %s", 'companion' ),
+				'<code>' . esc_html( $jetpack_sandbox_domain ) . '</code>'
+			),
+			'placeholder' => esc_attr( $jetpack_sandbox_domain ),
+		)
+	);
+
+	$jetpack_fields = array();
+	if ( companion_is_jetpack_here() ) {
+		$jetpack_fields = array(
+			'jetpack_beta_blocks' => array(
+				'id' => 'jetpack_beta_blocks',
+				'title' => __( 'JETPACK_BETA_BLOCKS', 'companion' ),
+				'text' =>
+					esc_html__( 'Check to enable Jetpack blocks for Gutenberg that are on Beta stage of development', 'companion' ),
+				'type' => 'checkbox',
+			),
+			'jetpack_protect_api_host' => array(
+				'id' => 'jetpack_protect_api_host',
+				'title' => __( 'JETPACK_PROTECT__API_HOST', 'companion' ),
+				'text' => sprintf(
+					esc_html__( "Base URL for API requests to Jetpack Protect's REST API. Current value for JETPACK_PROTECT__API_HOST: %s", 'companion' ),
+					'<code>' . esc_html( JETPACK_PROTECT__API_HOST ) . '</code>'
+				),
+				'placeholder' => esc_attr( JETPACK_PROTECT__API_HOST ),
+			),
+			'jetpack_should_not_use_connection_iframe' => array(
+				'id' => 'jetpack_should_not_use_connection_iframe',
+				'title' => __( 'JETPACK_SHOULD_NOT_USE_CONNECTION_IFRAME', 'companion' ),
+				'text' => sprintf(
+					esc_html__( "Don't use connection iFrame (dropped in Jetpack 10.1)", 'companion' )
+				),
+				'type' => 'checkbox',
+			),
+			'jetpack_dev_debug' => array(
+				'id' => 'jetpack_dev_debug',
+				'title' => __( 'JETPACK_DEV_DEBUG', 'companion' ),
+				'text' =>
+					esc_html__( 'Check to enable offline mode, and access features that can be used without a connection to WordPress.com', 'companion' ),
+				'type' => 'checkbox',
+			),
+		);
+	}
+
+	$options_page['companion']['sections']['jetpack_tweaks']['fields'] = array_merge( $global_fields, $jetpack_fields );
+
 	new RationalOptionPages( $options_page );
 }
 
@@ -329,8 +328,5 @@ function companion_tamper_with_jetpack_constants() {
 	}
 	if ( ! ( defined( 'JETPACK_DEV_DEBUG' ) && JETPACK_DEV_DEBUG ) && companion_get_option( 'jetpack_dev_debug', '' ) ) {
 		define( 'JETPACK_DEV_DEBUG', companion_get_option( 'jetpack_dev_debug', '' ) ? true : false );
-	}
-	if ( ! ( defined( 'JETPACK_NO_USER_TEST_MODE' ) && JETPACK_NO_USER_TEST_MODE ) && companion_get_option( 'jetpack_no_user_testing', '' ) ) {
-		define( 'JETPACK_NO_USER_TEST_MODE', companion_get_option( 'jetpack_no_user_testing', '' ) ? true : false );
 	}
 }
