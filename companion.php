@@ -3,7 +3,7 @@
 Plugin Name: Companion Plugin
 Plugin URI: https://github.com/Automattic/companion
 Description: Helps keep the launched WordPress in order.
-Version: 1.18
+Version: 1.19
 Author: Osk
 */
 
@@ -310,7 +310,7 @@ function companion_add_jetpack_constants_option_page() {
 }
 
 function companion_is_jetpack_here() {
-	return class_exists( 'Jetpack' );
+	return class_exists( 'Jetpack' ) || class_exists( '\Automattic\Jetpack\Connection\Manager' );
 }
 
 function companion_get_option( $slug, $default = null ) {
