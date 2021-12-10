@@ -3,7 +3,7 @@
 Plugin Name: Companion Plugin
 Plugin URI: https://github.com/Automattic/companion
 Description: Helps keep the launched WordPress in order.
-Version: 1.20
+Version: 1.21
 Author: Osk
 */
 
@@ -258,7 +258,14 @@ function companion_add_jetpack_constants_option_page() {
 				'<code>' . esc_html( $jetpack_sandbox_domain ) . '</code>'
 			),
 			'placeholder' => esc_attr( $jetpack_sandbox_domain ),
-		)
+		),
+		'jetpack_enable_my_jetpack' => array(
+			'id' => 'jetpack_enable_my_jetpack',
+			'title' => 'JETPACK_ENABLE_MY_JETPACK',
+			'text' =>
+				esc_html__( 'Check to enable JETPACK_ENABLE_MY_JETPACK feature flag. This will enable the My Jetpack page Work in progress.', 'companion' ),
+			'type' => 'checkbox',
+		),
 	);
 
 	$jetpack_fields = array();
@@ -295,13 +302,6 @@ function companion_add_jetpack_constants_option_page() {
 					esc_html__( 'Check to enable offline mode, and access features that can be used without a connection to WordPress.com', 'companion' ),
 				'type' => 'checkbox',
 			),
-			'jetpack_enable_my_jetpack' => array(
-				'id' => 'jetpack_enable_my_jetpack',
-				'title' => 'JETPACK_ENABLE_MY_JETPACK',
-				'text' =>
-					esc_html__( 'Check to enable JETPACK_ENABLE_MY_JETPACK feature flag. This will enable the My Jetpack page Work in progress.', 'companion' ),
-				'type' => 'checkbox',
-			),
 		);
 	}
 
@@ -311,7 +311,7 @@ function companion_add_jetpack_constants_option_page() {
 }
 
 function companion_is_jetpack_here() {
-	return class_exists( 'Jetpack' ) || class_exists( '\Automattic\Jetpack\Connection\Manager' );
+	return class_exists( 'Jetpack' );
 }
 
 function companion_get_option( $slug, $default = null ) {
