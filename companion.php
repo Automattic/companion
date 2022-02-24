@@ -269,7 +269,7 @@ function companion_add_jetpack_constants_option_page() {
 		'jetpack_boost_cloud_css' => array(
 			'id' => 'jetpack_boost_cloud_css',
 			'title' => __( 'JETPACK_BOOST_CLOUD_CSS', 'companion' ),
-			'text' => esc_html__( 'Enable cloud css for Jetpack Boost', 'companion' ),
+			'text' => esc_html__( 'Enable Cloud CSS feature for Jetpack Boost', 'companion' ),
 			'type' => 'checkbox',
 		),
 	);
