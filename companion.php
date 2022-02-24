@@ -3,7 +3,7 @@
 Plugin Name: Companion Plugin
 Plugin URI: https://github.com/Automattic/companion
 Description: Helps keep the launched WordPress in order.
-Version: 1.22
+Version: 1.23
 Author: Osk
 */
 
@@ -266,6 +266,12 @@ function companion_add_jetpack_constants_option_page() {
 				esc_html__( 'Check to enable JETPACK_ENABLE_MY_JETPACK feature flag. This will enable the My Jetpack page Work in progress.', 'companion' ),
 			'type' => 'checkbox',
 		),
+		'jetpack_boost_cloud_css' => array(
+			'id' => 'jetpack_boost_cloud_css',
+			'title' => __( 'JETPACK_BOOST_CLOUD_CSS', 'companion' ),
+			'text' => esc_html__( 'Enable Cloud CSS feature for Jetpack Boost', 'companion' ),
+			'type' => 'checkbox',
+		),
 	);
 
 	$jetpack_fields = array();
@@ -286,12 +292,6 @@ function companion_add_jetpack_constants_option_page() {
 					'<code>' . esc_html( $jetpack_protect_api_host ) . '</code>'
 				),
 				'placeholder' => esc_attr( $jetpack_protect_api_host ),
-			),
-			'jetpack_boost_cloud_css' => array(
-				'id' => 'jetpack_boost_cloud_css',
-				'title' => __( 'JETPACK_BOOST_CLOUD_CSS', 'companion' ),
-				'text' => esc_html__( 'Enable cloud css for Jetpack Boost', 'companion' ),
-				'type' => 'checkbox',
 			),
 			'jetpack_should_not_use_connection_iframe' => array(
 				'id' => 'jetpack_should_not_use_connection_iframe',
