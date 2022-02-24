@@ -40,6 +40,9 @@ function clipboard( $target, $inner = '&#x1f4cb;' ) {
 }
 
 function companion_admin_notices() {
+	if ( ! companion_get_option( 'jurassic_ninja_credentials_notice', true ) ) {
+		return;
+	}
 	if ( function_exists( 'get_current_screen' ) ) {
 		$screen = get_current_screen();
 		if ( $screen->id === 'post' ) {
@@ -271,6 +274,13 @@ function companion_add_jetpack_constants_option_page() {
 			'title' => __( 'JETPACK_BOOST_CLOUD_CSS', 'companion' ),
 			'text' => esc_html__( 'Enable Cloud CSS feature for Jetpack Boost', 'companion' ),
 			'type' => 'checkbox',
+		),
+		'jurassic_ninja_credentials_notice' => array(
+			'id' => 'jurassic_ninja_credentials_notice',
+			'title' => __( 'Jurassic Ninja Credentials', 'companion' ),
+			'text' => esc_html__( 'Show Jurassic Ninja Credentials on every page', 'companion' ),
+			'type' => 'checkbox',
+			'checked' => companion_get_option( 'jurassic_ninja_credentials_notice', true ) ,
 		),
 	);
 
