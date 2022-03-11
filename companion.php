@@ -57,6 +57,7 @@ function companion_admin_notices() {
 	$host = parse_url( network_site_url(), PHP_URL_HOST );
 	$sftp = 'sftp://'. $sysuser . ':' . $admin_password . '@' . $host . ':22/' . get_home_path(); // Extra `/` after port is needed for some SFTP apps
 	$ssh = 'ssh ' . $sysuser . '@'. $host;
+	$rsync = 'jetpack rsync --dest ' . $sysuser . '@' . $host . ':' . esc_html( get_home_path() ) . 'wp-content/plugins';
 	?>
 	<div class="notice notice-success is-dismissible">
 		<h3 class="jurassic_ninja_welcome">
@@ -84,6 +85,9 @@ function companion_admin_notices() {
 			<?php clipboard( 'jurassic_ssh' ); ?>
 			<strong>SFTP connection string</strong>
 			<?php clipboard( 'jurassic_sftp' ); ?>
+			<span style="display:none" id="jurassic_rsync"><?php echo esc_html( $rsync ); ?></span>
+			<strong>rsync from monorepo</strong>
+			<?php clipboard( 'jurassic_rsync' ); ?>
 		</p>
 		<p>
 			<strong>Server path:</strong> <code id="jurassic_ninja_server_path" class="jurassic_ninja_field"><?php echo esc_html( get_home_path() ); ?></code>
