@@ -298,7 +298,7 @@ function companion_add_jetpack_constants_option_page() {
 				'id' => 'jetpack_protect_api_host',
 				'title' => __( 'JETPACK_PROTECT__API_HOST', 'companion' ),
 				'text' => sprintf(
-					esc_html__( "Base URL for API requests to Jetpack Protect's REST API. Current value for JETPACK_PROTECT__API_HOST: %s", 'companion' ),
+					esc_html__( "Base URL for API requests to Jetpack Brute force Protection REST API. Current value for JETPACK_PROTECT__API_HOST: %s", 'companion' ),
 					'<code>' . esc_html( $jetpack_protect_api_host ) . '</code>'
 				),
 				'placeholder' => esc_attr( $jetpack_protect_api_host ),
