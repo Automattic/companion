@@ -321,6 +321,50 @@ function companion_add_jetpack_constants_option_page() {
 		);
 	}
 
+	/**
+	 * Jetpack Protect options
+	 */
+	if ( class_exists( 'Jetpack_Protect' ) ) {
+		$options_page['companion']['sections']['jetpack_protect'] = array(
+			'title' => __( 'Jetpack Protect', 'companion' ),
+			'text'  => '<p>' . __( 'Configure some defaults constants used by Jetpack Protect development plugin', 'companion' ) . '</p>',
+			'fields' => array(
+				'jetpack_protect_bypass_cache' => array(
+					'id' => 'jetpack_protect_bypass_cache',
+					'title' => __( 'Bypass cache', 'companion' ),
+					'text' =>
+						esc_html__( 'Check to bypass local cache and always ask WPCOM for fresh information on vulnerabilities', 'companion' ),
+					'type' => 'checkbox',
+				),
+				'jetpack_protect_response_type' => array(
+					'id' => 'jetpack_protect_response_type',
+					'title' => __( 'Response type', 'companion' ),
+					'text' => sprintf(
+						esc_html__( "What response would you like to get from WPCOM?", 'companion' )
+					),
+					'type' => 'select',
+					'choices' => array(
+						'empty' => 'Empty: Response as if the first check was not performed yet',
+						'complete_green' => 'Complete Green: Response will include all plugins and zero vulnerabitlies',
+						'incomplete_green' => 'Incomplete Green: Response will miss one plugin and have zero vulnerabilities',
+						'complete' => 'Complete: Response will include all plugins and 2 of them will have vulnerabilities',
+						'incomplete' => 'Incomplete: Response will miss one plugin and 2 of them will have vulnerabilities',
+					),
+				),
+				'jetpack_protect_core_vuls' => array(
+					'id' => 'jetpack_protect_core_vuls',
+					'title' => __( 'Number of core vulnerabilities', 'companion' ),
+					'text' =>
+						esc_html__( 'The number of vulnerabilities found in WP core that the response should include.', 'companion' ),
+					'type' => 'number',
+				),
+			),
+		);
+	}
+	/**
+	 * End of Jetpack Protect options
+	 */
+
 	$options_page['companion']['sections']['jetpack_tweaks']['fields'] = array_merge( $global_fields, $jetpack_fields );
 
 	new RationalOptionPages( $options_page );
@@ -360,4 +404,20 @@ function companion_tamper_with_jetpack_constants() {
 	if ( ! ( defined( 'JETPACK_BOOST_CLOUD_CSS' ) && JETPACK_BOOST_CLOUD_CSS ) && companion_get_option( 'jetpack_boost_cloud_css', '' ) ) {
 		define( 'JETPACK_BOOST_CLOUD_CSS', companion_get_option( 'jetpack_boost_cloud_css', '' ) ? true : false );
 	}
+
+	/**
+	 * Jetpack Protect options
+	 */
+	if ( ! ( defined( 'JETPACK_PROTECT_DEV__BYPASS_CACHE' ) && JETPACK_PROTECT_DEV__BYPASS_CACHE ) && companion_get_option( 'jetpack_protect_bypass_cache', '' ) ) {
+		define( 'JETPACK_PROTECT_DEV__BYPASS_CACHE', companion_get_option( 'jetpack_protect_bypass_cache', '' ) ? true : false );
+	}
+	if ( ! ( defined( 'JETPACK_PROTECT_DEV__API_RESPONSE_TYPE' ) && JETPACK_PROTECT_DEV__API_RESPONSE_TYPE ) && companion_get_option( 'jetpack_protect_response_type', '' ) ) {
+		define( 'JETPACK_PROTECT_DEV__API_RESPONSE_TYPE', companion_get_option( 'jetpack_protect_response_type', '' ) );
+	}
+	if ( ! ( defined( 'JETPACK_PROTECT_DEV__API_CORE_VULS' ) && JETPACK_PROTECT_DEV__API_CORE_VULS ) && companion_get_option( 'jetpack_protect_core_vuls', '' ) ) {
+		define( 'JETPACK_PROTECT_DEV__API_CORE_VULS', companion_get_option( 'jetpack_protect_core_vuls', '' ) );
+	}
+	/**
+	 * End of Jetpack Protect options
+	 */
 }
