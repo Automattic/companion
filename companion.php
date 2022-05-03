@@ -262,13 +262,6 @@ function companion_add_jetpack_constants_option_page() {
 			),
 			'placeholder' => esc_attr( $jetpack_sandbox_domain ),
 		),
-		'jetpack_enable_my_jetpack' => array(
-			'id' => 'jetpack_enable_my_jetpack',
-			'title' => 'JETPACK_ENABLE_MY_JETPACK',
-			'text' =>
-				esc_html__( 'Check to enable JETPACK_ENABLE_MY_JETPACK feature flag. This will enable the My Jetpack page Work in progress.', 'companion' ),
-			'type' => 'checkbox',
-		),
 		'jetpack_boost_cloud_css' => array(
 			'id' => 'jetpack_boost_cloud_css',
 			'title' => __( 'JETPACK_BOOST_CLOUD_CSS', 'companion' ),
