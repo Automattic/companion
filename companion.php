@@ -257,7 +257,7 @@ function companion_add_jetpack_constants_option_page() {
 			'id' => 'jetpack_sandbox_domain',
 			'title' => __( 'JETPACK__SANDBOX_DOMAIN', 'companion' ),
 			'text' => sprintf(
-				esc_html__( "The domain of a WordPress.com Sandbox to which you wish to send all of Jetpack's remote requests. Must be a ___.wordpress.com subdomain with DNS permanently pointed to a WordPress.com sandbox. Current value for JETPACK__SANDBOX_DOMAIN: %s", 'companion' ),
+				esc_html__( "The domain of a WordPress.com Sandbox to which you wish to send all of Jetpack's remote requests. Current value for JETPACK__SANDBOX_DOMAIN: %s", 'companion' ),
 				'<code>' . esc_html( $jetpack_sandbox_domain ) . '</code>'
 			),
 			'placeholder' => esc_attr( $jetpack_sandbox_domain ),
