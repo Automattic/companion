@@ -3,7 +3,7 @@
 Plugin Name: Companion Plugin
 Plugin URI: https://github.com/Automattic/companion
 Description: Helps keep the launched WordPress in order.
-Version: 1.26
+Version: 1.27
 Author: Osk
 */
 
@@ -284,7 +284,14 @@ function companion_add_jetpack_constants_option_page() {
 				'id' => 'jetpack_beta_blocks',
 				'title' => __( 'JETPACK_BETA_BLOCKS', 'companion' ),
 				'text' =>
-					esc_html__( 'Check to enable Jetpack blocks for Gutenberg that are on Beta stage of development', 'companion' ),
+					esc_html__( 'Check to enable Jetpack Beta blocks', 'companion' ),
+				'type' => 'checkbox',
+			),
+			'jetpack_experimental_blocks' => array(
+				'id' => 'jetpack_experimental_blocks',
+				'title' => __( 'JETPACK_EXPERIMENTAL_BLOCKS', 'companion' ),
+				'text' =>
+					esc_html__( 'Check to enable experimental Jetpack blocks', 'companion' ),
 				'type' => 'checkbox',
 			),
 			'jetpack_protect_api_host' => array(
@@ -383,6 +390,9 @@ function companion_tamper_with_jetpack_constants() {
 	}
 	if ( ! ( defined( 'JETPACK_BETA_BLOCKS' ) && JETPACK_BETA_BLOCKS ) && companion_get_option( 'jetpack_beta_blocks', '' ) ) {
 		define( 'JETPACK_BETA_BLOCKS', companion_get_option( 'jetpack_beta_blocks', '' ) ? true : false );
+	}
+	if ( ! ( defined( 'JETPACK_EXPERIMENTAL_BLOCKS' ) && JETPACK_EXPERIMENTAL_BLOCKS ) && companion_get_option( 'jetpack_experimental_blocks', '' ) ) {
+		define( 'JETPACK_EXPERIMENTAL_BLOCKS', companion_get_option( 'jetpack_experimental_blocks', '' ) ? true : false );
 	}
 	if ( ! ( defined( 'JETPACK_SHOULD_NOT_USE_CONNECTION_IFRAME' ) && JETPACK_SHOULD_NOT_USE_CONNECTION_IFRAME ) && companion_get_option( 'jetpack_should_not_use_connection_iframe', '' ) ) {
 		define( 'JETPACK_SHOULD_NOT_USE_CONNECTION_IFRAME', companion_get_option( 'jetpack_should_not_use_connection_iframe', '' ) ? true : false );
