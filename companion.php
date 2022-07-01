@@ -284,7 +284,7 @@ function companion_add_jetpack_constants_option_page() {
 				'id' => 'jetpack_beta_blocks',
 				'title' => __( 'JETPACK_BETA_BLOCKS', 'companion' ),
 				'text' =>
-					esc_html__( 'Check to enable Jetpack blocks for Gutenberg that are on Beta stage of development', 'companion' ),
+					esc_html__( 'Check to enable Jetpack Beta blocks', 'companion' ),
 				'type' => 'checkbox',
 			),
 			'jetpack_experimental_blocks' => array(
