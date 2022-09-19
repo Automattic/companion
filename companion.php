@@ -3,7 +3,7 @@
 Plugin Name: Companion Plugin
 Plugin URI: https://github.com/Automattic/companion
 Description: Helps keep the launched WordPress in order.
-Version: 1.27
+Version: 1.28
 Author: Osk
 */
 
@@ -262,12 +262,6 @@ function companion_add_jetpack_constants_option_page() {
 			),
 			'placeholder' => esc_attr( $jetpack_sandbox_domain ),
 		),
-		'jetpack_boost_cloud_css' => array(
-			'id' => 'jetpack_boost_cloud_css',
-			'title' => __( 'JETPACK_BOOST_CLOUD_CSS', 'companion' ),
-			'text' => esc_html__( 'Enable Cloud CSS feature for Jetpack Boost', 'companion' ),
-			'type' => 'checkbox',
-		),
 		'jurassic_ninja_credentials_notice' => array(
 			'id' => 'jurassic_ninja_credentials_notice',
 			'title' => __( 'Jurassic Ninja Credentials', 'companion' ),
@@ -403,9 +397,6 @@ function companion_tamper_with_jetpack_constants() {
 
 	if ( ! ( defined( 'JETPACK_ENABLE_MY_JETPACK' ) && JETPACK_ENABLE_MY_JETPACK ) && companion_get_option( 'jetpack_enable_my_jetpack', '' ) ) {
 		define( 'JETPACK_ENABLE_MY_JETPACK', companion_get_option( 'jetpack_enable_my_jetpack', '' ) ? true : false );
-	}
-	if ( ! ( defined( 'JETPACK_BOOST_CLOUD_CSS' ) && JETPACK_BOOST_CLOUD_CSS ) && companion_get_option( 'jetpack_boost_cloud_css', '' ) ) {
-		define( 'JETPACK_BOOST_CLOUD_CSS', companion_get_option( 'jetpack_boost_cloud_css', '' ) ? true : false );
 	}
 
 	/**
