@@ -3,7 +3,7 @@
 Plugin Name: Companion Plugin
 Plugin URI: https://github.com/Automattic/companion
 Description: Helps keep the launched WordPress in order.
-Version: 1.28
+Version: 1.29
 Author: Osk
 */
 
@@ -269,6 +269,13 @@ function companion_add_jetpack_constants_option_page() {
 			'type' => 'checkbox',
 			'checked' => companion_get_option( 'jurassic_ninja_credentials_notice', true ) ,
 		),
+		'jurassic_ninja_script_debug' => array(
+			'id' => 'jurassic_ninja_script_debug',
+			'title' => __( 'Script Debug', 'companion' ),
+			'text' => esc_html__( 'Set SCRIPT_DEBUG', 'companion' ),
+			'type' => 'checkbox',
+			'checked' => companion_get_option( 'jurassic_ninja_script_debug', false ) ,
+		),
 	);
 
 	$jetpack_fields = array();
@@ -377,6 +384,10 @@ function companion_get_option( $slug, $default = null ) {
 function companion_tamper_with_jetpack_constants() {
 	if ( ! ( defined( 'JETPACK__SANDBOX_DOMAIN' ) && JETPACK__SANDBOX_DOMAIN ) && companion_get_option( 'jetpack_sandbox_domain', '' ) ) {
 		define( 'JETPACK__SANDBOX_DOMAIN', companion_get_option( 'jetpack_sandbox_domain', '' ) );
+	}
+
+	if ( ! defined( 'SCRIPT_DEBUG' ) && companion_get_option( 'jurassic_ninja_script_debug', false ) ) {
+		define( 'SCRIPT_DEBUG', companion_get_option( 'jurassic_ninja_script_debug', false ) );
 	}
 
 	if ( ! ( defined( 'JETPACK_PROTECT__API_HOST' ) && JETPACK_PROTECT__API_HOST ) && companion_get_option( 'jetpack_protect_api_host', '' ) ) {
