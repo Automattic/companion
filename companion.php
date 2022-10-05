@@ -1,10 +1,10 @@
 <?php
-/*
-Plugin Name: Companion Plugin
-Plugin URI: https://github.com/Automattic/companion
-Description: Helps keep the launched WordPress in order.
-Version: 1.28
-Author: Osk
+/**
+ * Plugin Name: Companion Plugin
+ * Plugin URI: https://github.com/Automattic/companion
+ * Description: Helps keep the launched WordPress in order.
+ * Version: 1.28
+ * Author: Osk
 */
 
 // Do nothing if it happens to be running in an Atomic site.
@@ -383,27 +383,25 @@ function companion_tamper_with_jetpack_constants() {
 		define( 'JETPACK_PROTECT__API_HOST', companion_get_option( 'jetpack_protect_api_host', '' ) );
 	}
 	if ( ! ( defined( 'JETPACK_BETA_BLOCKS' ) && JETPACK_BETA_BLOCKS ) && companion_get_option( 'jetpack_beta_blocks', '' ) ) {
-		define( 'JETPACK_BETA_BLOCKS', companion_get_option( 'jetpack_beta_blocks', '' ) ? true : false );
+		define( 'JETPACK_BETA_BLOCKS', (bool) companion_get_option( 'jetpack_beta_blocks', '' ) );
 	}
 	if ( ! ( defined( 'JETPACK_EXPERIMENTAL_BLOCKS' ) && JETPACK_EXPERIMENTAL_BLOCKS ) && companion_get_option( 'jetpack_experimental_blocks', '' ) ) {
-		define( 'JETPACK_EXPERIMENTAL_BLOCKS', companion_get_option( 'jetpack_experimental_blocks', '' ) ? true : false );
+		define( 'JETPACK_EXPERIMENTAL_BLOCKS', (bool) companion_get_option( 'jetpack_experimental_blocks', '' ) );
 	}
 	if ( ! ( defined( 'JETPACK_SHOULD_NOT_USE_CONNECTION_IFRAME' ) && JETPACK_SHOULD_NOT_USE_CONNECTION_IFRAME ) && companion_get_option( 'jetpack_should_not_use_connection_iframe', '' ) ) {
-		define( 'JETPACK_SHOULD_NOT_USE_CONNECTION_IFRAME', companion_get_option( 'jetpack_should_not_use_connection_iframe', '' ) ? true : false );
+		define( 'JETPACK_SHOULD_NOT_USE_CONNECTION_IFRAME', (bool) companion_get_option( 'jetpack_should_not_use_connection_iframe', '' ) );
 	}
 	if ( ! ( defined( 'JETPACK_DEV_DEBUG' ) && JETPACK_DEV_DEBUG ) && companion_get_option( 'jetpack_dev_debug', '' ) ) {
-		define( 'JETPACK_DEV_DEBUG', companion_get_option( 'jetpack_dev_debug', '' ) ? true : false );
+		define( 'JETPACK_DEV_DEBUG', (bool) companion_get_option( 'jetpack_dev_debug', '' ) );
 	}
 
 	if ( ! ( defined( 'JETPACK_ENABLE_MY_JETPACK' ) && JETPACK_ENABLE_MY_JETPACK ) && companion_get_option( 'jetpack_enable_my_jetpack', '' ) ) {
-		define( 'JETPACK_ENABLE_MY_JETPACK', companion_get_option( 'jetpack_enable_my_jetpack', '' ) ? true : false );
+		define( 'JETPACK_ENABLE_MY_JETPACK', (bool) companion_get_option( 'jetpack_enable_my_jetpack', '' ) );
 	}
 
-	/**
-	 * Jetpack Protect options
-	 */
+	// Jetpack Protect options
 	if ( ! ( defined( 'JETPACK_PROTECT_DEV__BYPASS_CACHE' ) && JETPACK_PROTECT_DEV__BYPASS_CACHE ) && companion_get_option( 'jetpack_protect_bypass_cache', '' ) ) {
-		define( 'JETPACK_PROTECT_DEV__BYPASS_CACHE', companion_get_option( 'jetpack_protect_bypass_cache', '' ) ? true : false );
+		define( 'JETPACK_PROTECT_DEV__BYPASS_CACHE', (bool) companion_get_option( 'jetpack_protect_bypass_cache', '' ) );
 	}
 	if ( ! ( defined( 'JETPACK_PROTECT_DEV__API_RESPONSE_TYPE' ) && JETPACK_PROTECT_DEV__API_RESPONSE_TYPE ) && companion_get_option( 'jetpack_protect_response_type', '' ) ) {
 		define( 'JETPACK_PROTECT_DEV__API_RESPONSE_TYPE', companion_get_option( 'jetpack_protect_response_type', '' ) );
