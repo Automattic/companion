@@ -411,7 +411,34 @@ function companion_tamper_with_jetpack_constants() {
 	if ( ! ( defined( 'JETPACK_PROTECT_DEV__API_CORE_VULS' ) && JETPACK_PROTECT_DEV__API_CORE_VULS ) && companion_get_option( 'jetpack_protect_core_vuls', '' ) ) {
 		define( 'JETPACK_PROTECT_DEV__API_CORE_VULS', companion_get_option( 'jetpack_protect_core_vuls', '' ) );
 	}
-	/**
-	 * End of Jetpack Protect options
-	 */
+}
+
+/**
+ * Make an API request to the main Jurassic Ninja server.
+ *
+ * @param string $endpoint The endpoint to request. Valid values are 'extend' and 'checkin'.
+ *
+ * @return void
+ * @throws Exception When an invalid endpoint is provided.
+ */
+function companion_api_request( string $endpoint ) {
+	$endpoint = trim( $endpoint, ' /' );
+	$valid_endpoints = [
+		'extend' => true,
+		'checkin' => true,
+	];
+
+	if ( ! isset( $valid_endpoints[ $endpoint ] ) ) {
+		throw new Exception( sprintf( 'Invalid endpoint: %s', $endpoint ) );
+	}
+
+	$api_base_url = companion_get_api_base_url();
+	$domain       = parse_url( network_site_url(), PHP_URL_HOST );
+	wp_remote_post(
+		"{$api_base_url}/{$endpoint}",
+		[
+			'headers' => [ 'content-type' => 'application/json' ],
+			'body'    => json_encode( [ 'domain' => $domain ] ),
+		]
+	);
 }
