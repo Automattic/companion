@@ -33,6 +33,15 @@ add_action( 'pre_current_active_plugins', 'companion_hide_plugin' );
 companion_tamper_with_jetpack_constants();
 add_action( 'init', 'companion_add_jetpack_constants_option_page' );
 
+/**
+ * Get the API base URL for Jurassic Ninja.
+ *
+ * @return string
+ */
+function companion_get_api_base_url() {
+	return (string) get_option( 'companion_api_base_url', 'https://jurassic.ninja/wp-json/jurassic.ninja' );
+}
+
 function companion_clipboard( $target, $inner = '&#x1f4cb;' ) {
 	?>
 	<a class="jurassic_ninja_field_clipboard" target="<?php echo esc_attr( $target ); ?>" href="#"><?php echo $inner; ?></a>
