@@ -21,8 +21,6 @@ if ( is_multisite() && ! is_main_site() ) {
 	return true;
 }
 
-$companion_api_base_url = get_option( 'companion_api_base_url' );
-
 add_action( 'wp_login', 'companion_wp_login', 1, 2 );
 add_action( 'after_setup_theme', 'companion_after_setup_theme' );
 add_action( 'admin_notices', 'companion_admin_notices' );
@@ -193,41 +191,20 @@ function companion_hide_plugin() {
 }
 
 function companion_wp_login() {
-	global $companion_api_base_url;
-
 	if ( defined( 'WP_CLI' ) && WP_CLI ) {
 		return;
 	}
 
-	$auto_login = get_option( 'auto_login' );
+	$auto_login = companion_get_option( 'auto_login' );
 
-	update_option( 'auto_login', 0 );
+	companion_update_multisite_option( 'auto_login', 0 );
+	companion_update_multisite_option( 'jurassic_ninja_last_checkin', time() );
 
 	if ( empty( $auto_login ) ) {
-		$urlparts = wp_parse_url( network_site_url() );
-		$domain = $urlparts['host'];
-		$url = "$companion_api_base_url/extend";
-		wp_remote_post( $url, [
-			'headers' => [
-				'content-type' => 'application/json',
-			],
-			'body' => wp_json_encode( [
-				'domain' => $domain,
-			] ),
-		] );
+		companion_api_request( 'extend' );
 	} else {
-		$urlparts = wp_parse_url( network_site_url() );
-		$domain = $urlparts ['host'];
-		$url = "$companion_api_base_url/checkin";
-		wp_remote_post( $url, [
-			'headers' => [
-				'content-type' => 'application/json',
-			],
-			'body' => wp_json_encode( [
-				'domain' => $domain,
-			] ),
-		] );
-		wp_safe_redirect( '/wp-admin' );
+		companion_api_request( 'checkin' );
+		wp_safe_redirect( admin_url() );
 		exit( 0 );
 	}
 }
