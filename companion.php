@@ -26,7 +26,7 @@ add_action( 'after_setup_theme', 'companion_after_setup_theme' );
 add_action( 'admin_notices', 'companion_admin_notices' );
 add_action( 'pre_current_active_plugins', 'companion_hide_plugin' );
 /*
- * Run this function as early as we can relying in WordPress loading plugin in alphabetical order
+ * Run this function as early as we can relying on WordPress loading plugin in alphabetical order
  */
 companion_tamper_with_jetpack_constants();
 add_action( 'init', 'companion_add_jetpack_constants_option_page' );
@@ -69,20 +69,26 @@ function companion_admin_notices() {
 	if ( ! companion_get_option( 'jurassic_ninja_credentials_notice', true ) ) {
 		return;
 	}
+
 	if ( function_exists( 'get_current_screen' ) ) {
 		$screen = get_current_screen();
 		if ( $screen->id === 'post' ) {
 			return;
 		}
 	}
-	$password_option_key = 'jurassic_ninja_admin_password';
-	$sysuser_option_key = 'jurassic_ninja_sysuser';
-	$admin_password = is_multisite() ? get_blog_option( 1, $password_option_key ) : get_option( $password_option_key );
-	$ssh_password = $admin_password;
-	$sysuser = is_multisite() ? get_blog_option( 1, $sysuser_option_key ) : get_option( $sysuser_option_key );
-	$host = parse_url( network_site_url(), PHP_URL_HOST );
-	$sftp = 'sftp://'. $sysuser . ':' . $admin_password . '@' . $host . ':22/' . get_home_path(); // Extra `/` after port is needed for some SFTP apps
-	$ssh = 'ssh ' . $sysuser . '@'. $host;
+
+	$days_remaining = companion_get_days_remaining();
+	$admin_password = companion_get_option( 'jurassic_ninja_admin_password' );
+	$sysuser        = companion_get_option( 'jurassic_ninja_sysuser' );
+	$host           = parse_url( network_site_url(), PHP_URL_HOST );
+	$ssh            = "ssh {$sysuser}@{$host}";
+	$sftp           = sprintf(
+		'sftp://%s:%s@%s:22/%s', // Extra `/` after port is needed for some SFTP apps
+		$sysuser,
+		$admin_password,
+		$host,
+		get_home_path()
+	);
 	?>
 	<div class="notice notice-success is-dismissible">
 		<h3 class="jurassic_ninja_welcome">
@@ -91,8 +97,8 @@ function companion_admin_notices() {
 		</h3>
 		<p>
 			<strong><span id="jurassic_url" class="jurassic_ninja_field"><?php echo esc_html( network_site_url() ); ?></span></strong>
-			<?php echo esc_html__( 'will be destroyed in 7 days.' ); ?>
 			<?php companion_clipboard( 'jurassic_url' ); ?>
+			<?php echo esc_html( sprintf( _n( 'will be destroyed in %d day', 'will be destroyed in %d days', $days_remaining ), $days_remaining ) ); ?>
 		</p>
 		<p>
 			<strong>User:</strong> <code id="jurassic_username" class="jurassic_ninja_field">demo</code> 
@@ -101,8 +107,8 @@ function companion_admin_notices() {
 		</p>
 		<p>
 			<strong>SSH User:</strong> <code id="jurassic_ssh_user" class="jurassic_ninja_field"><?php echo esc_html( $sysuser ); ?></code>
-			<strong>Password:</strong> <code id="jurassic_ssh_password" class="jurassic_ninja_field"><?php echo esc_html( $ssh_password ); ?></code>
 			<?php companion_clipboard( 'jurassic_ssh_user' ); ?>
+			<strong>Password:</strong> <code id="jurassic_ssh_password" class="jurassic_ninja_field"><?php echo esc_html( $admin_password ); ?></code>
 			<?php companion_clipboard( 'jurassic_ssh_password' ); ?>
 			<span style="display:none" id="jurassic_ssh"><?php echo esc_html( $ssh ); ?></span>
 			<span style="display:none" id="jurassic_sftp"><?php echo esc_html( $sftp ); ?></span>
@@ -207,17 +213,19 @@ function companion_wp_login() {
 	}
 }
 
-
 function companion_after_setup_theme() {
-	$auto_login = get_option( 'auto_login' );
+	$auto_login = companion_get_multisite_option( 'auto_login' );
+
 	// Only autologin for requests to the homepage.
 	if ( ! empty( $auto_login ) && ( $_SERVER['REQUEST_URI'] == '/' ) ) {
-		$password = get_option( 'jurassic_ninja_admin_password' );
-		$creds = array();
-		$creds['user_login'] = 'demo';
-		$creds['user_password'] = $password;
-		$creds['remember'] = true;
-		$user = wp_signon( $creds, companion_site_uses_https() );
+		wp_signon(
+			[
+				'user_login'    => 'demo',
+				'user_password' => get_option( 'jurassic_ninja_admin_password' ),
+				'remember'      => true,
+			],
+			companion_site_uses_https()
+		);
 	}
 }
 
@@ -228,13 +236,12 @@ function companion_site_uses_https() {
 }
 
 function companion_add_jetpack_constants_option_page() {
-	$jetpack_beta_present_and_supports_jetpack_constants_settings = class_exists( 'Jetpack_Beta' ) &&
-		version_compare( JPBETA_VERSION, '3', '>' );
-	if ( $jetpack_beta_present_and_supports_jetpack_constants_settings ) {
+	if ( class_exists( 'Jetpack_Beta' ) && version_compare( JPBETA_VERSION, '3', '>' ) ) {
 		return;
 	}
+
 	if ( ! class_exists( 'RationalOptionPages' ) ) {
-		require 'RationalOptionPages.php';
+		require __DIR__ . '/RationalOptionPages.php';
 	}
 
 	$options_page = array(
@@ -373,9 +380,8 @@ function companion_is_jetpack_here() {
 
 function companion_get_option( $slug, $default = null ) {
 	$options = get_option( 'companion', array() );
-	return isset( $options[ $slug ] )  ? $options[ $slug ] : $default;
+	return isset( $options[ $slug ] ) ? $options[ $slug ] : $default;
 }
-
 
 function companion_tamper_with_jetpack_constants() {
 	if ( ! ( defined( 'JETPACK__SANDBOX_DOMAIN' ) && JETPACK__SANDBOX_DOMAIN ) && companion_get_option( 'jetpack_sandbox_domain', '' ) ) {
