@@ -440,3 +440,27 @@ function companion_api_request( string $endpoint ) {
 		]
 	);
 }
+
+/**
+ * Get an option that should be set on the main site for multisite installs.
+ *
+ * @param string $option The option name.
+ * @param mixed $default (Optional) The default value to return if the option is not set.
+ *
+ * @return mixed
+ */
+function companion_get_multisite_option( string $option, $default = null ) {
+	return is_multisite() ? get_blog_option( 1, $option, $default ) : get_option( $option, $default );
+}
+
+/**
+ * Update an option that should be set on the main site for multisite installs.
+ *
+ * @param string $option The option name.
+ * @param mixed $value The option value.
+ *
+ * @return bool
+ */
+function companion_update_multisite_option( string $option, $value ) {
+	return is_multisite() ? update_blog_option( 1, $option, $value ) : update_option( $option, $value );
+}
