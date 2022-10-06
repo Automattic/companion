@@ -48,6 +48,25 @@ function companion_clipboard( $target, $inner = '&#x1f4cb;' ) {
 	<?php
 }
 
+/**
+ * Get the number of days remaining before this site is destroyed.
+ *
+ * @return int
+ */
+function companion_get_days_remaining() {
+	$last_checkin = (int) companion_get_multisite_option( 'jurassic_ninja_last_checkin', 0 );
+	if ( 0 === $last_checkin ) {
+		return 0;
+	}
+
+	$last_date = new DateTimeImmutable( "@{$last_checkin}" );
+	$now = new DateTimeImmutable();
+
+	$diff = date_diff( $now, $last_date );
+
+	return 7 - $diff->d;
+}
+
 function companion_admin_notices() {
 	if ( ! companion_get_option( 'jurassic_ninja_credentials_notice', true ) ) {
 		return;
