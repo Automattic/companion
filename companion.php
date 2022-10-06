@@ -78,8 +78,8 @@ function companion_admin_notices() {
 	}
 
 	$days_remaining = companion_get_days_remaining();
-	$admin_password = companion_get_option( 'jurassic_ninja_admin_password' );
-	$sysuser        = companion_get_option( 'jurassic_ninja_sysuser' );
+	$admin_password = companion_get_multisite_option( 'jurassic_ninja_admin_password' );
+	$sysuser        = companion_get_multisite_option( 'jurassic_ninja_sysuser' );
 	$host           = parse_url( network_site_url(), PHP_URL_HOST );
 	$ssh            = "ssh {$sysuser}@{$host}";
 	$sftp           = sprintf(
@@ -199,7 +199,7 @@ function companion_wp_login() {
 		return;
 	}
 
-	$auto_login = companion_get_option( 'auto_login' );
+	$auto_login = companion_get_multisite_option( 'auto_login' );
 
 	companion_update_multisite_option( 'auto_login', 0 );
 	companion_update_multisite_option( 'jurassic_ninja_last_checkin', time() );
