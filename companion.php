@@ -181,12 +181,10 @@ function companion_admin_notices() {
 
 function companion_hide_plugin() {
 	global $wp_list_table;
-	$hidearr = array( 'companion/companion.php' );
-	$myplugins = $wp_list_table->items;
-	foreach ( $myplugins as $key => $val ) {
-		if ( in_array( $key, $hidearr, true ) ) {
-			unset( $wp_list_table->items[ $key ] );
-		}
+
+	$plugin_file = plugin_basename( __FILE__ );
+	if ( array_key_exists( $plugin_file, $wp_list_table->items ) ) {
+		unset( $wp_list_table->items[ $plugin_file ] );
 	}
 }
 
