@@ -3,7 +3,7 @@
 Plugin Name: Companion Plugin
 Plugin URI: https://github.com/Automattic/companion
 Description: Helps keep the launched WordPress in order.
-Version: 1.28
+Version: 1.29
 Author: Osk
 */
 
@@ -274,19 +274,16 @@ function companion_add_jetpack_constants_option_page() {
 	$jetpack_fields = array();
 	if ( companion_is_jetpack_here() ) {
 		$jetpack_fields = array(
-			'jetpack_beta_blocks' => array(
-				'id' => 'jetpack_beta_blocks',
-				'title' => __( 'JETPACK_BETA_BLOCKS', 'companion' ),
-				'text' =>
-					esc_html__( 'Check to enable Jetpack Beta blocks', 'companion' ),
-				'type' => 'checkbox',
-			),
-			'jetpack_experimental_blocks' => array(
-				'id' => 'jetpack_experimental_blocks',
-				'title' => __( 'JETPACK_EXPERIMENTAL_BLOCKS', 'companion' ),
-				'text' =>
-					esc_html__( 'Check to enable experimental Jetpack blocks', 'companion' ),
-				'type' => 'checkbox',
+			'jetpack_blocks_variation' => array(
+				'id'      => 'jetpack_blocks_variation',
+				'title'   => __( 'Type of blocks to load in the editor', 'companion' ),
+				'text'    => esc_html__( 'Choose the type of blocks to load in the editor', 'companion' ),
+				'type'    => 'select',
+				'choices' => array(
+					'production'   => 'Production',
+					'beta'         => 'Beta',
+					'experimental' => 'Experimental'
+				),
 			),
 			'jetpack_protect_api_host' => array(
 				'id' => 'jetpack_protect_api_host',
@@ -382,11 +379,8 @@ function companion_tamper_with_jetpack_constants() {
 	if ( ! ( defined( 'JETPACK_PROTECT__API_HOST' ) && JETPACK_PROTECT__API_HOST ) && companion_get_option( 'jetpack_protect_api_host', '' ) ) {
 		define( 'JETPACK_PROTECT__API_HOST', companion_get_option( 'jetpack_protect_api_host', '' ) );
 	}
-	if ( ! ( defined( 'JETPACK_BETA_BLOCKS' ) && JETPACK_BETA_BLOCKS ) && companion_get_option( 'jetpack_beta_blocks', '' ) ) {
-		define( 'JETPACK_BETA_BLOCKS', companion_get_option( 'jetpack_beta_blocks', '' ) ? true : false );
-	}
-	if ( ! ( defined( 'JETPACK_EXPERIMENTAL_BLOCKS' ) && JETPACK_EXPERIMENTAL_BLOCKS ) && companion_get_option( 'jetpack_experimental_blocks', '' ) ) {
-		define( 'JETPACK_EXPERIMENTAL_BLOCKS', companion_get_option( 'jetpack_experimental_blocks', '' ) ? true : false );
+	if ( ! ( defined( 'JETPACK_BLOCKS_VARIATION' ) && JETPACK_BLOCKS_VARIATION ) && companion_get_option( 'jetpack_blocks_variation', '' ) ) {
+		define( 'JETPACK_BLOCKS_VARIATION', companion_get_option( 'jetpack_blocks_variation', '' ) );
 	}
 	if ( ! ( defined( 'JETPACK_SHOULD_NOT_USE_CONNECTION_IFRAME' ) && JETPACK_SHOULD_NOT_USE_CONNECTION_IFRAME ) && companion_get_option( 'jetpack_should_not_use_connection_iframe', '' ) ) {
 		define( 'JETPACK_SHOULD_NOT_USE_CONNECTION_IFRAME', companion_get_option( 'jetpack_should_not_use_connection_iframe', '' ) ? true : false );
