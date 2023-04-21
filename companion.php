@@ -356,6 +356,28 @@ function companion_add_jetpack_constants_option_page() {
 	 * End of Jetpack Protect options
 	 */
 
+	/**
+	 * My Jetpack options
+	 */
+	if ( class_exists( 'Automattic\Jetpack\My_Jetpack\Initializer' ) ) {
+		$options_page['companion']['sections']['jetpack_my_jetpack'] = array(
+			'title' => __( 'My Jetpack', 'companion' ),
+			'text'  => '<p>' . __( 'Configure some defaults constants used by My Jetpack development page', 'companion' ) . '</p>',
+			'fields' => array(
+				'jetpack_my_jetpack_videopress_stats_enabled' => array(
+					'id' => 'jetpack_my_jetpack_videopress_stats_enabled',
+					'title' => __( 'VideoPress Stats', 'companion' ),
+					'text' =>
+						esc_html__( 'Enable stats in VideoPress card', 'companion' ),
+					'type' => 'checkbox',
+				),
+			),
+		);
+	}
+	/**
+	 * End of My Jetpack options
+	 */
+
 	$options_page['companion']['sections']['jetpack_tweaks']['fields'] = array_merge( $global_fields, $jetpack_fields );
 
 	new RationalOptionPages( $options_page );
@@ -389,9 +411,15 @@ function companion_tamper_with_jetpack_constants() {
 		define( 'JETPACK_DEV_DEBUG', companion_get_option( 'jetpack_dev_debug', '' ) ? true : false );
 	}
 
-	if ( ! ( defined( 'JETPACK_ENABLE_MY_JETPACK' ) && JETPACK_ENABLE_MY_JETPACK ) && companion_get_option( 'jetpack_enable_my_jetpack', '' ) ) {
-		define( 'JETPACK_ENABLE_MY_JETPACK', companion_get_option( 'jetpack_enable_my_jetpack', '' ) ? true : false );
+	/**
+	 * My Jetpack options
+	 */
+	if ( ! ( defined( 'JETPACK_MY_JETPACK_VIDEOPRESS_STATS_ENABLED' ) && JETPACK_MY_JETPACK_VIDEOPRESS_STATS_ENABLED ) && companion_get_option( 'jetpack_my_jetpack_videopress_stats_enabled', '' ) ) {
+		define( 'JETPACK_MY_JETPACK_VIDEOPRESS_STATS_ENABLED', companion_get_option( 'jetpack_my_jetpack_videopress_stats_enabled', '' ) ? true : false );
 	}
+	/**
+	 * End of My Jetpack options
+	 */
 
 	/**
 	 * Jetpack Protect options
