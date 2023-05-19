@@ -309,6 +309,13 @@ function companion_add_jetpack_constants_option_page() {
 					esc_html__( 'Check to enable offline mode, and access features that can be used without a connection to WordPress.com', 'companion' ),
 				'type' => 'checkbox',
 			),
+			'jetpack_ai' => array(
+				'id' => 'jetpack_ai',
+				'title' => __( 'JETPACK_AI', 'companion' ),
+				'text' =>
+					esc_html__( 'Enable Jetpack AI feature', 'companion' ),
+				'type' => 'checkbox',
+			),
 		);
 	}
 
@@ -409,6 +416,9 @@ function companion_tamper_with_jetpack_constants() {
 	}
 	if ( ! ( defined( 'JETPACK_DEV_DEBUG' ) && JETPACK_DEV_DEBUG ) && companion_get_option( 'jetpack_dev_debug', '' ) ) {
 		define( 'JETPACK_DEV_DEBUG', companion_get_option( 'jetpack_dev_debug', '' ) ? true : false );
+	}
+	if ( ! ( defined( 'JETPACK_AI_ENABLED' ) && JETPACK_AI_ENABLED ) && companion_get_option( 'jetpack_ai', '' ) ) {
+		define( 'JETPACK_AI_ENABLED', companion_get_option( 'jetpack_ai', '' ) ? true : false );
 	}
 
 	/**
