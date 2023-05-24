@@ -309,13 +309,6 @@ function companion_add_jetpack_constants_option_page() {
 					esc_html__( 'Check to enable offline mode, and access features that can be used without a connection to WordPress.com', 'companion' ),
 				'type' => 'checkbox',
 			),
-			'jetpack_ai' => array(
-				'id' => 'jetpack_ai',
-				'title' => __( 'JETPACK_AI', 'companion' ),
-				'text' =>
-					esc_html__( 'Enable Jetpack AI feature', 'companion' ),
-				'type' => 'checkbox',
-			),
 		);
 	}
 
@@ -376,6 +369,13 @@ function companion_add_jetpack_constants_option_page() {
 					'title' => __( 'VideoPress Stats', 'companion' ),
 					'text' =>
 						esc_html__( 'Enable stats in VideoPress card', 'companion' ),
+					'type' => 'checkbox',
+				),
+				'jetpack_ai' => array(
+					'id' => 'jetpack_ai',
+					'title' => __( 'JETPACK_AI', 'companion' ),
+					'text' =>
+						esc_html__( 'Enable Jetpack AI feature', 'companion' ),
 					'type' => 'checkbox',
 				),
 			),
