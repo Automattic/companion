@@ -7,26 +7,23 @@ Version: 1.29
 Author: Osk
 */
 
-// Do nothing if it happens to be running in an Atomic site.
-// This may happen when importing a full Jurassic Ninja site into an Atomic one
-// and this plugin is eventually imported into the site.
-if ( defined( 'IS_ATOMIC' ) && IS_ATOMIC ) {
-	return true;
-}
-
 // Do a minimal set of stuff on a multisite installation on sites other than the main one
 if ( is_multisite() && ! is_main_site() ) {
 	add_action( 'pre_current_active_plugins', 'companion_hide_plugin' );
 	add_action( 'admin_notices', 'companion_admin_notices' );
-	return true;
+	return true; 
 }
 
 $companion_api_base_url = get_option( 'companion_api_base_url' );
 
-add_action( 'wp_login', 'companion_wp_login', 1, 2 );
-add_action( 'after_setup_theme', 'companion_after_setup_theme' );
-add_action( 'admin_notices', 'companion_admin_notices' );
-add_action( 'pre_current_active_plugins', 'companion_hide_plugin' );
+// These don't apply to Atomic sites.
+if ( ! defined( 'IS_ATOMIC' ) || ! IS_ATOMIC ) {
+	add_action( 'wp_login', 'companion_wp_login', 1, 2 );
+	add_action( 'after_setup_theme', 'companion_after_setup_theme' );
+	add_action( 'admin_notices', 'companion_admin_notices' );
+	add_action( 'pre_current_active_plugins', 'companion_hide_plugin' );
+}
+
 /*
  * Run this function as early as we can relying in WordPress loading plugin in alphabetical order
  */
