@@ -3,7 +3,7 @@
 Plugin Name: Companion Plugin
 Plugin URI: https://github.com/Automattic/companion
 Description: Helps keep the launched WordPress in order.
-Version: 1.29
+Version: 1.30
 Author: Osk
 */
 
@@ -11,7 +11,7 @@ Author: Osk
 if ( is_multisite() && ! is_main_site() ) {
 	add_action( 'pre_current_active_plugins', 'companion_hide_plugin' );
 	add_action( 'admin_notices', 'companion_admin_notices' );
-	return true; 
+	return true;
 }
 
 $companion_api_base_url = get_option( 'companion_api_base_url' );
@@ -66,7 +66,7 @@ function companion_admin_notices() {
 			<?php echo esc_html__( 'will be destroyed in 7 days.' ); ?>
 		</p>
 		<p>
-			<strong>User:</strong> <code id="jurassic_username" class="jurassic_ninja_field">demo</code> 
+			<strong>User:</strong> <code id="jurassic_username" class="jurassic_ninja_field">demo</code>
 			<code id="jurassic_password" class="jurassic_ninja_field"><?php echo esc_html( $admin_password ); ?></code>
 			<?php clipboard( 'jurassic_password' ); ?>
 		</p>
@@ -134,7 +134,7 @@ function companion_admin_notices() {
 				const el = ! isChild ?
 					document.getElementById( e.target.getAttribute( 'target' ) ) :
 					document.getElementById( e.target.parentNode.getAttribute( 'target' ) );
-				const str = el.innerText; 
+				const str = el.innerText;
 				jurassic_ninja_clippy( str );
 				// Transition to checkmark and back
 				if ( isChild ) {
@@ -254,8 +254,9 @@ function companion_add_jetpack_constants_option_page() {
 			'id' => 'jetpack_sandbox_domain',
 			'title' => __( 'JETPACK__SANDBOX_DOMAIN', 'companion' ),
 			'text' => sprintf(
-				esc_html__( "The domain of a WordPress.com Sandbox to which you wish to send all of Jetpack's remote requests. Current value for JETPACK__SANDBOX_DOMAIN: %s", 'companion' ),
-				'<code>' . esc_html( $jetpack_sandbox_domain ) . '</code>'
+				esc_html__( "The domain of a WordPress.com Sandbox to which you wish to send all of Jetpack's remote requests. Current value for JETPACK__SANDBOX_DOMAIN: %s %s", 'companion' ),
+				'<code>' . esc_html( $jetpack_sandbox_domain ) . '</code>',
+				'<br><strong>' . __( 'Remember to enable global http in your sandbox', 'companion' ) . '</strong>'
 			),
 			'placeholder' => esc_attr( $jetpack_sandbox_domain ),
 		),
