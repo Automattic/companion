@@ -87,7 +87,7 @@ function companion_admin_notices() {
 			<?php clipboard( 'jurassic_ninja_server_path' ); ?>
 		</p>
 		<p>
-			<strong>Jetpack rsync path:</strong> <code id="jurassic_ninja_rsync_path" class="jurassic_ninja_field"><?php echo esc_html( $sysuser ) . '@' . esc_html( str_replace( 'https://', '', network_site_url() ) ) . ':' . esc_html( get_home_path() ) . 'wp-content/plugins' ; ?></code>
+			<strong>Jetpack rsync path:</strong> <code id="jurassic_ninja_rsync_path" class="jurassic_ninja_field">jetpack rsync jetpack <?php echo esc_html( $sysuser ) . '@' . esc_html( str_replace( 'https://', '', network_site_url() ) ) . ':' . esc_html( get_home_path() ) . 'wp-content/plugins/jetpack' ; ?></code>
 			<?php clipboard( 'jurassic_ninja_rsync_path' ); ?>
 		</p>
 	</div>
