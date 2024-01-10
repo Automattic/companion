@@ -16,7 +16,7 @@ if ( is_multisite() && ! is_main_site() ) {
 
 $companion_api_base_url = get_option( 'companion_api_base_url' );
 
-// Only supported on JurassicNinja client sites on Atomic platform.
+// Disable functionality if Atomic and not a JurassicNinja client site.
 if ( ! defined( 'IS_ATOMIC' ) || ( IS_ATOMIC && ( defined( 'IS_ATOMIC_JN' ) && IS_ATOMIC_JN ) ) ) {
 	add_action( 'wp_login', 'companion_wp_login', 1, 2 );
 	add_action( 'after_setup_theme', 'companion_after_setup_theme' );
