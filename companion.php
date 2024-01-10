@@ -16,8 +16,8 @@ if ( is_multisite() && ! is_main_site() ) {
 
 $companion_api_base_url = get_option( 'companion_api_base_url' );
 
-// These don't apply to Atomic sites.
-if ( ! defined( 'IS_ATOMIC' ) || ! IS_ATOMIC ) {
+// Only supported on JurassicNinja client sites on Atomic platform.
+if ( ! defined( 'IS_ATOMIC' ) || ( IS_ATOMIC && ( defined( 'IS_ATOMIC_JN' ) && IS_ATOMIC_JN ) ) ) {
 	add_action( 'wp_login', 'companion_wp_login', 1, 2 );
 	add_action( 'after_setup_theme', 'companion_after_setup_theme' );
 	add_action( 'admin_notices', 'companion_admin_notices' );
@@ -209,7 +209,7 @@ function companion_wp_login() {
 function companion_after_setup_theme() {
 	$auto_login = get_option( 'auto_login' );
 	// Only autologin for requests to the homepage.
-	if ( ! empty( $auto_login ) && ( $_SERVER['REQUEST_URI'] == '/' ) ) {
+	if ( ! empty( $auto_login ) && ( in_array( $_SERVER['REQUEST_URI'], [ '/', '' ] ) ) ) {
 		$password = get_option( 'jurassic_ninja_admin_password' );
 		$creds = array();
 		$creds['user_login'] = 'demo';
