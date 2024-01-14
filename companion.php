@@ -63,7 +63,7 @@ function companion_admin_notices() {
 		$path = '/srv/htdocs/';
 		$sshuser = $host;
 		$ssh = 'ssh ' . $sshuser . '@ssh.atomicsites.net';
-		$sftp = 'sftp://' . sshuser . ':' . $admin_password . '@ssh.atomicsites.net:22/' . $path;
+		$sftp = 'sftp://' . $sshuser . ':' . $admin_password . '@ssh.atomicsites.net:22/' . $path;
 		$rsync_command = 'jetpack rsync jetpack ' . $sshuser . '@ssh.atomicsites.net:' . $path .'wp-content/plugins/jetpack';
     }
 	?>
