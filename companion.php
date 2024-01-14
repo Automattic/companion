@@ -56,7 +56,9 @@ function companion_admin_notices() {
 	$sftp = 'sftp://'. $sysuser . ':' . $admin_password . '@' . $host . ':22/' . get_home_path(); // Extra `/` after port is needed for some SFTP apps
 	$ssh = 'ssh ' . $sysuser . '@'. $host;
 	$path = get_home_path();
-	$rsync_command = "jetpack rsync jetpack $sshuser @ " . str_replace( 'https://', '', network_site_url() ) . ':' . $path . 'wp-content/plugins/jetpack';
+	$rsync_command = 'jetpack rsync jetpack ' . $sysuser . '@' . str_replace( 'https://', '', network_site_url() ) . ':' . $path . 'wp-content/plugins/jetpack';
+
+	// Jurassic.Ninja on Atomic credentials
 	if ( defined( 'IS_ATOMIC_JN' ) && IS_ATOMIC_JN ) {
 		$path = '/srv/htdocs/';
 		$sshuser = $host;
@@ -186,10 +188,13 @@ function companion_wp_login() {
 
 	update_option( 'auto_login', 0 );
 
-	if( defined( 'IS_ATOMIC_JN' ) && IS_ATOMIC_JN ) {
+	// Jurassic.Ninja on Atomic
+	if ( defined( 'IS_ATOMIC_JN' ) && IS_ATOMIC_JN ) {
 		$urlparts = wp_parse_url( network_site_url() );
 		$domain   = $urlparts['host'];
+		// WP.COM Public.API Endpoint
 		$url      = "https://public-api.wordpress.com/wpcom/v2/jurassic-ninja/extend";
+		// Retrieve Shared Token from persistent data.
 		$persistent_data = new Atomic_Persistent_Data();
 		$api_token = $persistent_data->JN_API_TOKEN;
 		wp_remote_post( $url, [
@@ -239,7 +244,7 @@ function companion_wp_login() {
 function companion_after_setup_theme() {
 	$auto_login = get_option( 'auto_login' );
 	// Only autologin for requests to the homepage.
-	if ( ! empty( $auto_login ) && ( in_array( $_SERVER['REQUEST_URI'], [ '/', '' ] ) ) ) {
+	if ( ! empty( $auto_login ) && ( $_SERVER['REQUEST_URI'] == '/' ) ) {
 		$password = get_option( 'jurassic_ninja_admin_password' );
 		$creds = array();
 		$creds['user_login'] = 'demo';
