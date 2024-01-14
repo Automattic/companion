@@ -243,15 +243,28 @@ function companion_wp_login() {
 
 function companion_after_setup_theme() {
 	$auto_login = get_option( 'auto_login' );
-	// Only autologin for requests to the homepage.
-	if ( ! empty( $auto_login ) && ( $_SERVER['REQUEST_URI'] == '/' ) ) {
-		$password = get_option( 'jurassic_ninja_admin_password' );
-		$creds = array();
-		$creds['user_login'] = 'demo';
-		$creds['user_password'] = $password;
-		$creds['remember'] = true;
-		$user = wp_signon( $creds, companion_site_uses_https() );
+	$do_login = false;
+
+	if ( defined( 'IS_ATOMIC_JN' ) && IS_ATOMIC_JN ) {
+	    // Sites on Atomic may see a request before the user.
+		if ( ! empty( $auto_login ) && ( $_SERVER['REQUEST_URI'] == '/?auto_login' ) ) {
+			$do_login = true;
+		}
+	} else {
+		// Only autologin for requests to the homepage.
+		if ( ! empty( $auto_login ) && ( $_SERVER['REQUEST_URI'] == '/' ) ) {
+			$do_login = true;
+		}
 	}
+
+	if ( $do_login ) {
+		$password               = get_option( 'jurassic_ninja_admin_password' );
+		$creds                  = array();
+		$creds['user_login']    = 'demo';
+		$creds['user_password'] = $password;
+		$creds['remember']      = true;
+		$user                   = wp_signon( $creds, companion_site_uses_https() );
+    }
 }
 
 function companion_site_uses_https() {
