@@ -51,9 +51,19 @@ function companion_admin_notices() {
 	$admin_password = is_multisite() ? get_blog_option( 1, $password_option_key ) : get_option( $password_option_key );
 	$ssh_password = $admin_password;
 	$sysuser = is_multisite() ? get_blog_option( 1, $sysuser_option_key ) : get_option( $sysuser_option_key );
+	$sshuser = $sysuser;
 	$host = parse_url( network_site_url(), PHP_URL_HOST );
 	$sftp = 'sftp://'. $sysuser . ':' . $admin_password . '@' . $host . ':22/' . get_home_path(); // Extra `/` after port is needed for some SFTP apps
 	$ssh = 'ssh ' . $sysuser . '@'. $host;
+	$path = get_home_path();
+	$rsync_command = "jetpack rsync jetpack $sshuser @ " . str_replace( 'https://', '', network_site_url() ) . ':' . $path . 'wp-content/plugins/jetpack';
+	if ( defined( 'IS_ATOMIC_JN' ) && IS_ATOMIC_JN ) {
+		$path = '/srv/htdocs/';
+		$sshuser = $host;
+		$ssh = 'ssh ' . $sshuser . '@ssh.atomicsites.net';
+		$sftp = 'sftp://' . sshuser . ':' . $admin_password . '@ssh.atomicsites.net:22/' . $path;
+		$rsync_command = 'jetpack rsync jetpack ' . $sshuser . '@ssh.atomicsites.net:' . $path .'wp-content/plugins/jetpack';
+    }
 	?>
 	<div class="notice notice-success is-dismissible">
 		<h3 class="jurassic_ninja_welcome">
@@ -71,7 +81,7 @@ function companion_admin_notices() {
 			<?php clipboard( 'jurassic_password' ); ?>
 		</p>
 		<p>
-			<strong>SSH User:</strong> <code id="jurassic_ssh_user" class="jurassic_ninja_field"><?php echo esc_html( $sysuser ); ?></code>
+			<strong>SSH User:</strong> <code id="jurassic_ssh_user" class="jurassic_ninja_field"><?php echo esc_html( $sshuser ); ?></code>
 			<?php clipboard( 'jurassic_ssh_user' ); ?>
 			<strong>Password:</strong> <code id="jurassic_ssh_password" class="jurassic_ninja_field"><?php echo esc_html( $ssh_password ); ?></code>
 			<?php clipboard( 'jurassic_ssh_password' ); ?>
@@ -83,11 +93,11 @@ function companion_admin_notices() {
 			<?php clipboard( 'jurassic_sftp' ); ?>
 		</p>
 		<p>
-			<strong>Server path:</strong> <code id="jurassic_ninja_server_path" class="jurassic_ninja_field"><?php echo esc_html( get_home_path() ); ?></code>
+			<strong>Server path:</strong> <code id="jurassic_ninja_server_path" class="jurassic_ninja_field"><?php echo esc_html( $path ); ?></code>
 			<?php clipboard( 'jurassic_ninja_server_path' ); ?>
 		</p>
 		<p>
-			<strong>Jetpack rsync command:</strong> <code id="jurassic_ninja_rsync_path" class="jurassic_ninja_field">jetpack rsync jetpack <?php echo esc_html( $sysuser ) . '@' . esc_html( str_replace( 'https://', '', network_site_url() ) ) . ':' . esc_html( get_home_path() ) . 'wp-content/plugins/jetpack' ; ?></code>
+			<strong>Jetpack rsync command:</strong> <code id="jurassic_ninja_rsync_path" class="jurassic_ninja_field"><?php echo esc_html( $rsync_command ); ?></code>
 			<?php clipboard( 'jurassic_ninja_rsync_path' ); ?>
 		</p>
 	</div>
@@ -176,32 +186,52 @@ function companion_wp_login() {
 
 	update_option( 'auto_login', 0 );
 
-	if ( empty( $auto_login ) ) {
+	if( defined( 'IS_ATOMIC_JN' ) && IS_ATOMIC_JN ) {
 		$urlparts = wp_parse_url( network_site_url() );
-		$domain = $urlparts['host'];
-		$url = "$companion_api_base_url/extend";
+		$domain   = $urlparts['host'];
+		$url      = "https://public-api.wordpress.com/wpcom/v2/jurassic-ninja/extend";
+		$persistent_data = new Atomic_Persistent_Data();
+		$api_token = $persistent_data->JN_API_TOKEN;
 		wp_remote_post( $url, [
 			'headers' => [
-				'content-type' => 'application/json',
 			],
-			'body' => wp_json_encode( [
-				'domain' => $domain,
-			] ),
+			'body'    => [
+				'domain'    => $domain,
+                'api_token' => $api_token,
+			],
 		] );
+		if( ! empty ( $auto_login ) ) {
+			wp_safe_redirect( '/wp-admin' );
+			exit( 0 );
+		}
 	} else {
-		$urlparts = wp_parse_url( network_site_url() );
-		$domain = $urlparts ['host'];
-		$url = "$companion_api_base_url/checkin";
-		wp_remote_post( $url, [
-			'headers' => [
-				'content-type' => 'application/json',
-			],
-			'body' => wp_json_encode( [
-				'domain' => $domain,
-			] ),
-		] );
-		wp_safe_redirect( '/wp-admin' );
-		exit( 0 );
+		if ( empty( $auto_login ) ) {
+			$urlparts = wp_parse_url( network_site_url() );
+			$domain   = $urlparts['host'];
+			$url      = "$companion_api_base_url/extend";
+			wp_remote_post( $url, [
+				'headers' => [
+					'content-type' => 'application/json',
+				],
+				'body'    => wp_json_encode( [
+					'domain' => $domain,
+				] ),
+			] );
+		} else {
+			$urlparts = wp_parse_url( network_site_url() );
+			$domain   = $urlparts ['host'];
+			$url      = "$companion_api_base_url/checkin";
+			wp_remote_post( $url, [
+				'headers' => [
+					'content-type' => 'application/json',
+				],
+				'body'    => wp_json_encode( [
+					'domain' => $domain,
+				] ),
+			] );
+			wp_safe_redirect( '/wp-admin' );
+			exit( 0 );
+		}
 	}
 }
 
