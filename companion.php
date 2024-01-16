@@ -61,10 +61,13 @@ function companion_admin_notices() {
 	// Jurassic.Ninja on Atomic credentials
 	if ( defined( 'IS_ATOMIC_JN' ) && IS_ATOMIC_JN ) {
 		$path = '/srv/htdocs/';
-		$sshuser = $host;
-		$ssh = 'ssh ' . $sshuser . '@ssh.atomicsites.net';
-		$sftp = 'sftp://' . $sshuser . ':' . $admin_password . '@ssh.atomicsites.net:22/' . $path;
-		$rsync_command = 'jetpack rsync jetpack ' . $sshuser . '@ssh.atomicsites.net:' . $path .'wp-content/plugins/jetpack';
+		$persistent_data = new Atomic_Persistent_Data();
+		$admin_password  = $persistent_data->JN_PASSWORD;
+		$ssh_password    = $admin_password;
+		$sshuser         = $host;
+		$ssh             = 'ssh ' . $sshuser . '@ssh.atomicsites.net';
+		$sftp            = 'sftp://' . $sshuser . ':' . $admin_password . '@ssh.atomicsites.net:22/' . $path;
+		$rsync_command   = 'jetpack rsync jetpack ' . $sshuser . '@ssh.atomicsites.net:' . $path .'wp-content/plugins/jetpack';
     }
 	?>
 	<div class="notice notice-success is-dismissible">
