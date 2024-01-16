@@ -259,6 +259,10 @@ function companion_after_setup_theme() {
 
 	if ( $do_login ) {
 		$password               = get_option( 'jurassic_ninja_admin_password' );
+		if ( defined( 'IS_ATOMIC_JN' ) && IS_ATOMIC_JN ) {
+			$persistent_data = new Atomic_Persistent_Data();
+			$password        = $persistent_data->JN_PASSWORD;
+		}
 		$creds                  = array();
 		$creds['user_login']    = 'demo';
 		$creds['user_password'] = $password;
