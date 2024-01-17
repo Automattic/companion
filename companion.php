@@ -24,6 +24,16 @@ if ( ! defined( 'IS_ATOMIC' ) || ( IS_ATOMIC && ( defined( 'IS_ATOMIC_JN' ) && I
 	add_action( 'pre_current_active_plugins', 'companion_hide_plugin' );
 }
 
+// Atomic disables core update permissions, so we need to re-add
+if ( defined( 'IS_ATOMIC_JN' ) && IS_ATOMIC_JN ) {
+	add_filter( 'user_has_cap', 'companion_user_has_cap', 10, 2 );
+}
+
+function companion_user_has_cap( $all, $caps ) {
+	$all['update_core'] = 1;
+	return $all;
+}
+
 /*
  * Run this function as early as we can relying in WordPress loading plugin in alphabetical order
  */
