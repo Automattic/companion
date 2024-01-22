@@ -89,8 +89,13 @@ function companion_admin_notices() {
 			<strong><span id="jurassic_url" class="jurassic_ninja_field"><?php echo esc_html( network_site_url() ); ?></span></strong>
 			<?php clipboard( 'jurassic_url' ); ?>
 			<?php echo esc_html__( 'will be destroyed in 7 days.' ); ?>
-		</p>
-		<p>
+		</p><?php
+        // Temporary notice to legacy Jurassic.Ninja sites.
+        if ( ! defined( 'IS_ATOMIC_JN' ) && strpos( $host, 'jurassic.ninja' ) != false ) {
+            echo '<p><strong>This test site will be deleted on January 31st, 2024. Please export any data you wish to keep before it is deleted.</strong></p>>';
+        }
+
+		?><p>
 			<strong>User:</strong> <code id="jurassic_username" class="jurassic_ninja_field">demo</code>
 			<code id="jurassic_password" class="jurassic_ninja_field"><?php echo esc_html( $admin_password ); ?></code>
 			<?php clipboard( 'jurassic_password' ); ?>
