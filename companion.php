@@ -219,7 +219,7 @@ function companion_wp_login() {
 			],
 		] );
 		if ( ! empty ( $auto_login ) ) {
-		    if ( empty( get_option( 'big-sky-api-key' ) ) ) {
+		    if ( empty( get_option( 'big_sky_api_key' ) ) ) {
 			    wp_safe_redirect( '/wp-admin' );
 		    } else {
 			    wp_safe_redirect( '/wp-admin/site-editor.php' );
