@@ -218,8 +218,12 @@ function companion_wp_login() {
                 'api_token' => $api_token,
 			],
 		] );
-		if( ! empty ( $auto_login ) ) {
-			wp_safe_redirect( '/wp-admin' );
+		if ( ! empty ( $auto_login ) ) {
+		    if ( empty( get_option( ) ) ) {
+			    wp_safe_redirect( '/wp-admin' );
+            } else {
+			    wp_safe_redirect( '/wp-admin/site-editor.php' );
+		    }
 			exit( 0 );
 		}
 	} else {
