@@ -3,7 +3,7 @@
 Plugin Name: Companion Plugin
 Plugin URI: https://github.com/Automattic/companion
 Description: Helps keep the launched WordPress in order.
-Version: 1.30
+Version: 1.31
 Author: Osk
 */
 
@@ -24,14 +24,79 @@ if ( ! defined( 'IS_ATOMIC' ) || ( IS_ATOMIC && ( defined( 'IS_ATOMIC_JN' ) && I
 	add_action( 'pre_current_active_plugins', 'companion_hide_plugin' );
 }
 
-// Atomic disables core update permissions, so we need to re-add
+// Installed on WP.cloud Jurassic.Ninja client.
 if ( defined( 'IS_ATOMIC_JN' ) && IS_ATOMIC_JN ) {
+
+	// WP.com disables core update permissions, so we need to re-add.
 	add_filter( 'user_has_cap', 'companion_user_has_cap', 10, 2 );
+
+	// Prevent installation and activation of disallowed plugins.
+	add_action( 'user_has_cap', 'companion_prevent_disallowed_plugin_from_installing_and_activation', 10, 4 );
+
+	// Restrict email to send only to the admin_email.
+	add_filter( 'wp_mail', function ( array $data ) {
+		$data['subject'] = ' ' . json_encode( $data['to'] ) . ' ' . $data['subject'];
+		$data['to']      = get_option( 'admin_email' );
+
+		return $data;
+	} );
 }
 
+/**
+ * Reset update_core permission that is removed on WP.cloud
+ * @param $all
+ * @param $caps
+ *
+ * @return mixed
+ */
 function companion_user_has_cap( $all, $caps ) {
-	$all['update_core'] = 1;
+    if ( isset( $all['install_plugins' ] ) && $all['install_plugins'] == 1 ) {
+	    $all['update_core'] = 1;
+    }
 	return $all;
+}
+
+/**
+ * Disallowed Plugins from being installed on Jurassic.Ninja sites.
+ */
+$companion_disallowed_plugins_list = [
+    // plugin slugs
+];
+
+/**
+ * Remove user permissions when attempting to install disallowed plugins
+ *
+ * @param $all_caps
+ * @param $caps
+ * @param $args
+ * @param $extra
+ *
+ * @return mixed
+ */
+function companion_prevent_disallowed_plugin_from_installing_and_activation( $all_caps, $caps, $args, $extra ) {
+	global $companion_disallowed_plugins_list;
+    // Plugin Install Flow.
+    if ( isset( $_POST['slug'] ) ) {
+		$slug  = sanitize_key( wp_unslash( $_POST['slug'] ) );
+
+	    if ( in_array( $slug, $companion_disallowed_plugins_list ) ) {
+		    unset($all_caps['install_plugins']);
+		    unset($all_caps['activate_plugins']);
+		    unset($all_caps['update_plugins']);
+	    }
+	}
+	https://really-steady.jurassic.ninja/wp-admin/plugins.php?action=activate&plugin=wordpress-seo%2Fwp-seo.php&plugin_status=all&paged=1&s&_wpnonce=d184a68021
+    // Plugin activation.
+	if ( isset( $_GET['plugin'] ) && isset( $_GET['action'] ) && $_GET['action'] == 'activate' ) {
+		$slug = explode('/', $_GET['plugin'])[0];
+
+		if ( in_array( $slug, $companion_disallowed_plugins_list ) ) {
+			unset($all_caps['install_plugins']);
+			unset($all_caps['activate_plugins']);
+			unset($all_caps['update_plugins']);
+		}
+	}
+	return $all_caps;
 }
 
 /*
