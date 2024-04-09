@@ -60,7 +60,7 @@ function companion_user_has_cap( $all, $caps ) {
  * Disallowed Plugins from being installed on Jurassic.Ninja sites.
  */
 $companion_disallowed_plugins_list = [
-    'wordpress-seo',
+    // plugin slugs
 ];
 
 /**
@@ -74,22 +74,23 @@ $companion_disallowed_plugins_list = [
  * @return mixed
  */
 function companion_prevent_disallowed_plugin_from_installing_and_activation( $all_caps, $caps, $args, $extra ) {
-	// Plugin Install Flow.
+	global $companion_disallowed_plugins_list;
+    // Plugin Install Flow.
     if ( isset( $_POST['slug'] ) ) {
 		$slug  = sanitize_key( wp_unslash( $_POST['slug'] ) );
 
-		if ( isset( $companion_disallowed_plugins_list[ $slug ] ) ) {
-			unset($all_caps['install_plugins']);
-			unset($all_caps['activate_plugins']);
-			unset($all_caps['update_plugins']);
-		}
+	    if ( in_array( $slug, $companion_disallowed_plugins_list ) ) {
+		    unset($all_caps['install_plugins']);
+		    unset($all_caps['activate_plugins']);
+		    unset($all_caps['update_plugins']);
+	    }
 	}
-
+	https://really-steady.jurassic.ninja/wp-admin/plugins.php?action=activate&plugin=wordpress-seo%2Fwp-seo.php&plugin_status=all&paged=1&s&_wpnonce=d184a68021
     // Plugin activation.
 	if ( isset( $_GET['plugin'] ) && isset( $_GET['action'] ) && $_GET['action'] == 'activate' ) {
 		$slug = explode('/', $_GET['plugin'])[0];
 
-		if ( isset( $companion_disallowed_plugins_list[ $slug ] ) ) {
+		if ( in_array( $slug, $companion_disallowed_plugins_list ) ) {
 			unset($all_caps['install_plugins']);
 			unset($all_caps['activate_plugins']);
 			unset($all_caps['update_plugins']);
