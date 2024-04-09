@@ -50,7 +50,7 @@ if ( defined( 'IS_ATOMIC_JN' ) && IS_ATOMIC_JN ) {
  * @return mixed
  */
 function companion_user_has_cap( $all, $caps ) {
-    if ( $all['install_plugins'] == 1 ) {
+    if ( isset( $all['install_plugins' ] ) && $all['install_plugins'] == 1 ) {
 	    $all['update_core'] = 1;
     }
 	return $all;
