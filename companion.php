@@ -3,7 +3,7 @@
 Plugin Name: Companion Plugin
 Plugin URI: https://github.com/Automattic/companion
 Description: Helps keep the launched WordPress in order.
-Version: 1.30
+Version: 1.31
 Author: Osk
 */
 
@@ -24,14 +24,78 @@ if ( ! defined( 'IS_ATOMIC' ) || ( IS_ATOMIC && ( defined( 'IS_ATOMIC_JN' ) && I
 	add_action( 'pre_current_active_plugins', 'companion_hide_plugin' );
 }
 
-// Atomic disables core update permissions, so we need to re-add
+// Installed on WP.cloud Jurassic.Ninja client.
 if ( defined( 'IS_ATOMIC_JN' ) && IS_ATOMIC_JN ) {
+
+	// WP.com disables core update permissions, so we need to re-add.
 	add_filter( 'user_has_cap', 'companion_user_has_cap', 10, 2 );
+
+	// Prevent installation and activation of disallowed plugins.
+	add_action( 'user_has_cap', 'companion_prevent_disallowed_plugin_from_installing_and_activation', 10, 4 );
+
+	// Restrict email to send only to the admin_email.
+	add_filter( 'wp_mail', function ( array $data ) {
+		$data['subject'] = ' ' . json_encode( $data['to'] ) . ' ' . $data['subject'];
+		$data['to']      = get_option( 'admin_email' );
+
+		return $data;
+	} );
 }
 
+/**
+ * Reset update_core permission that is removed on WP.cloud
+ * @param $all
+ * @param $caps
+ *
+ * @return mixed
+ */
 function companion_user_has_cap( $all, $caps ) {
-	$all['update_core'] = 1;
+    if ( $all['install_plugins'] == 1 ) {
+	    $all['update_core'] = 1;
+    }
 	return $all;
+}
+
+/**
+ * Disallowed Plugins from being installed on Jurassic.Ninja sites.
+ */
+$companion_disallowed_plugins_list = [
+    'wordpress-seo',
+];
+
+/**
+ * Remove user permissions when attempting to install disallowed plugins
+ *
+ * @param $all_caps
+ * @param $caps
+ * @param $args
+ * @param $extra
+ *
+ * @return mixed
+ */
+function companion_prevent_disallowed_plugin_from_installing_and_activation( $all_caps, $caps, $args, $extra ) {
+	// Plugin Install Flow.
+    if ( isset( $_POST['slug'] ) ) {
+		$slug  = sanitize_key( wp_unslash( $_POST['slug'] ) );
+
+		if ( isset( $companion_disallowed_plugins_list[ $slug ] ) ) {
+			unset($all_caps['install_plugins']);
+			unset($all_caps['activate_plugins']);
+			unset($all_caps['update_plugins']);
+		}
+	}
+
+    // Plugin activation.
+	if ( isset( $_GET['plugin'] ) && isset( $_GET['action'] ) && $_GET['action'] == 'activate' ) {
+		$slug = explode('/', $_GET['plugin'])[0];
+
+		if ( isset( $companion_disallowed_plugins_list[ $slug ] ) ) {
+			unset($all_caps['install_plugins']);
+			unset($all_caps['activate_plugins']);
+			unset($all_caps['update_plugins']);
+		}
+	}
+	return $all_caps;
 }
 
 /*
