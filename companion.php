@@ -27,19 +27,31 @@ if ( ! defined( 'IS_ATOMIC' ) || ( IS_ATOMIC && ( defined( 'IS_ATOMIC_JN' ) && I
 // Installed on WP.cloud Jurassic.Ninja client.
 if ( defined( 'IS_ATOMIC_JN' ) && IS_ATOMIC_JN ) {
 
-	// WP.com disables core update permissions, so we need to re-add.
-	add_filter( 'user_has_cap', 'companion_user_has_cap', 10, 2 );
+	$persistent_data = new Atomic_Persistent_Data();
 
-	// Prevent installation and activation of disallowed plugins.
-	add_action( 'user_has_cap', 'companion_prevent_disallowed_plugin_from_installing_and_activation', 10, 4 );
+	// Restrictions for Anonymous Sites.
+	if ( ! empty( $persistent_data->JN_ANONYMOUS ) ) {
 
-	// Restrict email to send only to the admin_email.
-	add_filter( 'wp_mail', function ( array $data ) {
-		$data['subject'] = ' ' . json_encode( $data['to'] ) . ' ' . $data['subject'];
-		$data['to']      = get_option( 'admin_email' );
+		// Prevent installation and activation of disallowed plugins.
+		add_action( 'user_has_cap', 'companion_prevent_disallowed_plugin_from_installing_and_activation', 10, 4 );
 
-		return $data;
-	} );
+		// Restrict email to send only to the admin_email.
+		add_filter( 'wp_mail', function ( array $data ) {
+			$data['subject'] = ' ' . json_encode( $data['to'] ) . ' ' . $data['subject'];
+			$data['to']      = get_option( 'admin_email' );
+
+			return $data;
+		} );
+
+		// Force WooPay into Sandbox and testing modes
+		add_filter( 'wcpay_dev_mode', '__return_true', 1000 );
+		add_filter( 'wcpay_test_mode', '__return_true', 1000 );
+
+	} else {
+		// WP.com disables core update permissions, so we need to re-add.
+		add_filter( 'user_has_cap', 'companion_user_has_cap', 10, 2 );
+    }
+
 }
 
 /**
@@ -85,7 +97,7 @@ function companion_prevent_disallowed_plugin_from_installing_and_activation( $al
 		    unset($all_caps['update_plugins']);
 	    }
 	}
-	https://really-steady.jurassic.ninja/wp-admin/plugins.php?action=activate&plugin=wordpress-seo%2Fwp-seo.php&plugin_status=all&paged=1&s&_wpnonce=d184a68021
+
     // Plugin activation.
 	if ( isset( $_GET['plugin'] ) && isset( $_GET['action'] ) && $_GET['action'] == 'activate' ) {
 		$slug = explode('/', $_GET['plugin'])[0];
