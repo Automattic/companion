@@ -32,6 +32,8 @@ if ( defined( 'IS_ATOMIC_JN' ) && IS_ATOMIC_JN ) {
 	// Restrictions for Anonymous Sites.
 	if ( ! empty( $persistent_data->JN_ANONYMOUS ) ) {
 
+	    define( "IS_ATOMIC_JN_ANONYMOUS", true );
+
 		// Prevent installation and activation of disallowed plugins.
 		add_action( 'user_has_cap', 'companion_prevent_disallowed_plugin_from_installing_and_activation', 10, 4 );
 
@@ -157,21 +159,30 @@ function companion_admin_notices() {
 		$rsync_command   = 'jetpack rsync jetpack ' . $sshuser . '@ssh.atomicsites.net:' . $path .'wp-content/plugins/jetpack';
     }
 	?>
-	<div class="notice notice-success is-dismissible">
+	<div class="notice notice-success is-dismissible jn_notice">
 		<h3 class="jurassic_ninja_welcome">
-			<img src="https://i2.wp.com/jurassic.ninja/wp-content/uploads/2018/05/jurassicninja-transparent.png?w=80&ssl=1" alt="">
-			<?php echo esc_html__( 'Welcome to Jurassic Ninja!' ); ?>
+			<!-- <img src="https://i2.wp.com/jurassic.ninja/wp-content/uploads/2018/05/jurassicninja-transparent.png?w=80&ssl=1" alt=""> -->
+			<?php echo esc_html__( 'Welcome to your Jurassic.Ninja test site!' ); ?>
 		</h3>
 		<p>
 			<strong><span id="jurassic_url" class="jurassic_ninja_field"><?php echo esc_html( network_site_url() ); ?></span></strong>
 			<?php clipboard( 'jurassic_url' ); ?>
-			<?php echo esc_html__( 'will be destroyed in 7 days.' ); ?>
+			<?php
+                if( defined( 'IS_ATOMIC_JN_ANONYMOUS' ) ) {
+	                echo esc_html__( 'will be destroyed 24 hours from site creation.' );
+                } else {
+                    echo esc_html__( 'will be destroyed in 7 days from last login.' );
+                }
+                ?>
 		</p>
 		<p>
 			<strong>User:</strong> <code id="jurassic_username" class="jurassic_ninja_field">demo</code>
 			<code id="jurassic_password" class="jurassic_ninja_field"><?php echo esc_html( $admin_password ); ?></code>
 			<?php clipboard( 'jurassic_password' ); ?>
 		</p>
+        <?php
+                if ( ! defined( 'IS_ATOMIC_JN_ANONYMOUS' ) ) {
+        ?>
 		<p>
 			<strong>SSH User:</strong> <code id="jurassic_ssh_user" class="jurassic_ninja_field"><?php echo esc_html( $sshuser ); ?></code>
 			<?php clipboard( 'jurassic_ssh_user' ); ?>
@@ -192,12 +203,18 @@ function companion_admin_notices() {
 			<strong>Jetpack rsync command:</strong> <code id="jurassic_ninja_rsync_path" class="jurassic_ninja_field"><?php echo esc_html( $rsync_command ); ?></code>
 			<?php clipboard( 'jurassic_ninja_rsync_path' ); ?>
 		</p>
+        <?php } ?>
 	</div>
 	<style type="text/css">
+        .jn_notice {
+            border-left-color: #6053F9;
+        }
+
 		.jurassic_ninja_welcome {
 			display: flex;
 			align-items: center;
 		}
+
 		.jurassic_ninja_welcome img {
 			margin: 0 5px 0 0;
 			max-width: 40px;
