@@ -171,7 +171,7 @@ function companion_admin_notices() {
                 if( defined( 'IS_ATOMIC_JN_ANONYMOUS' ) ) {
 	                echo esc_html__( 'will be destroyed 24 hours from site creation.' );
                 } else {
-                    echo esc_html__( 'will be destroyed in 7 days from last login.' );
+                    echo esc_html__( 'will be destroyed 7 days from last login.' );
                 }
                 ?>
 		</p>
@@ -207,7 +207,7 @@ function companion_admin_notices() {
 	</div>
 	<style type="text/css">
         .jn_notice {
-            border-left-color: #6053F9;
+            border-left-color: #6053F9 !important;
         }
 
 		.jurassic_ninja_welcome {
