@@ -3,29 +3,44 @@
 Plugin Name: Companion Plugin
 Plugin URI: https://github.com/Automattic/companion
 Description: Helps keep the launched WordPress in order.
-Version: 1.31
+Version: 1.32
 Author: Osk
 */
 
 // Do a minimal set of stuff on a multisite installation on sites other than the main one
 if ( is_multisite() && ! is_main_site() ) {
 	add_action( 'pre_current_active_plugins', 'companion_hide_plugin' );
-	add_action( 'admin_notices', 'companion_admin_notices' );
+
+	if( ! defined( 'IS_WP_STUDIO') ) {
+        add_action( 'admin_notices', 'companion_admin_notices' );
+	}
 	return true;
 }
 
 $companion_api_base_url = get_option( 'companion_api_base_url' );
 
-// Disable functionality if Atomic and not a JurassicNinja client site.
-if ( ! defined( 'IS_ATOMIC' ) || ( IS_ATOMIC && ( defined( 'IS_ATOMIC_JN' ) && IS_ATOMIC_JN ) ) ) {
+// Setup Hooks for WP.cloud
+if ( defined( 'IS_ATOMIC_JN' ) && IS_ATOMIC_JN ) {
 	add_action( 'wp_login', 'companion_wp_login', 1, 2 );
-	add_action( 'after_setup_theme', 'companion_after_setup_theme' );
-	add_action( 'admin_notices', 'companion_admin_notices' );
 	add_action( 'pre_current_active_plugins', 'companion_hide_plugin' );
+
+    if( defined( 'IS_WP_STUDIO') && IS_WP_STUDIO ) {
+        // TODO : Add hooks for WP Studio sites.
+    } else {
+	    add_action( 'after_setup_theme', 'companion_after_setup_theme' );
+	    add_action( 'admin_notices', 'companion_admin_notices' );
+
+	    /*
+         * Run this function as early as we can relying in WordPress loading plugin in alphabetical order
+         */
+	    companion_tamper_with_jetpack_constants();
+	    add_action( 'init', 'companion_add_jetpack_constants_option_page' );
+    }
+
 }
 
-// Installed on WP.cloud Jurassic.Ninja client.
-if ( defined( 'IS_ATOMIC_JN' ) && IS_ATOMIC_JN ) {
+// Installed on WP.cloud
+if ( class_exists( 'Atomic_Persistent_Data' ) ) {
 
 	$persistent_data = new Atomic_Persistent_Data();
 
@@ -112,12 +127,6 @@ function companion_prevent_disallowed_plugin_from_installing_and_activation( $al
 	}
 	return $all_caps;
 }
-
-/*
- * Run this function as early as we can relying in WordPress loading plugin in alphabetical order
- */
-companion_tamper_with_jetpack_constants();
-add_action( 'init', 'companion_add_jetpack_constants_option_page' );
 
 function clipboard( $target, $inner = '&#x1f4cb;' ) {
 ?>
