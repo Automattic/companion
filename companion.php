@@ -134,6 +134,13 @@ function companion_admin_notices() {
 		if ( $screen->id === 'post' ) {
 			return;
 		}
+
+		// Option to show only on dashboard
+		if ( get_option( 'jurassic_ninja_companion_notice_on_dashboard', false ) ) {
+			if ( $screen->id !== 'dashboard' ) {
+				return;
+			}
+		}
 	}
 	$password_option_key = 'jurassic_ninja_admin_password';
 	$sysuser_option_key = 'jurassic_ninja_sysuser';
