@@ -25,7 +25,7 @@ if ( ! defined( 'IS_ATOMIC' ) || ( IS_ATOMIC && ( defined( 'IS_ATOMIC_JN' ) && I
 }
 
 // Installed on WP.cloud Jurassic.Ninja client.
-if ( defined( 'IS_ATOMIC_JN' ) && IS_ATOMIC_JN ) {
+if ( defined( 'IS_ATOMIC_JN' ) && IS_ATOMIC_JN && class_exists('Atomic_Persistent_Data') ) {
 
 	$persistent_data = new Atomic_Persistent_Data();
 
@@ -155,7 +155,7 @@ function companion_admin_notices() {
 	$rsync_command = 'jetpack rsync jetpack ' . $sysuser . '@' . str_replace( 'https://', '', network_site_url() ) . ':' . $path . 'wp-content/plugins/jetpack';
 
 	// Jurassic.Ninja on Atomic credentials
-	if ( defined( 'IS_ATOMIC_JN' ) && IS_ATOMIC_JN ) {
+	if ( defined( 'IS_ATOMIC_JN' ) && IS_ATOMIC_JN && class_exists('Atomic_Persistent_Data') ) {
 		$path = '/srv/htdocs/';
 		$persistent_data = new Atomic_Persistent_Data();
 		$admin_password  = $persistent_data->JN_PASSWORD;
@@ -303,7 +303,7 @@ function companion_wp_login() {
 	update_option( 'auto_login', 0 );
 
 	// Jurassic.Ninja on Atomic
-	if ( defined( 'IS_ATOMIC_JN' ) && IS_ATOMIC_JN ) {
+	if ( defined( 'IS_ATOMIC_JN' ) && IS_ATOMIC_JN && class_exists('Atomic_Persistent_Data') ) {
 		$urlparts = wp_parse_url( network_site_url() );
 		$domain   = $urlparts['host'];
 		// WP.COM Public.API Endpoint
@@ -375,7 +375,7 @@ function companion_after_setup_theme() {
 		}
 	}
 
-	if ( $do_login ) {
+	if ( $do_login && class_exists('Atomic_Persistent_Data') ) {
 		$password               = get_option( 'jurassic_ninja_admin_password' );
 		if ( defined( 'IS_ATOMIC_JN' ) && IS_ATOMIC_JN ) {
 			$persistent_data = new Atomic_Persistent_Data();
