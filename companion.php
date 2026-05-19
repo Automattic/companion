@@ -320,11 +320,30 @@ function companion_wp_login() {
 			],
 		] );
 		if ( ! empty ( $auto_login ) ) {
-		    if ( empty( get_option( 'big_sky_api_key' ) ) ) {
-			    wp_safe_redirect( '/wp-admin' );
-		    } else {
-			    wp_safe_redirect( '/wp-admin/site-editor.php' );
-		    }
+			// Map of known Jurassic Ninja "experiences" to their landing URL.
+			// Closed list by design — to add an experience, edit this array.
+			$jn_experience_map = array(
+				'big-sky'      => '/wp-admin/site-editor.php',
+				'site-foundry' => '/wp-admin/network/admin.php?page=site-foundry',
+			);
+
+			$jn_experience = get_option( 'jurassic_ninja_experience' );
+
+			if ( ! empty( $jn_experience ) ) {
+				// Known slug → mapped URL. Unknown slug → fall through to /wp-admin.
+				$redirect_to = isset( $jn_experience_map[ $jn_experience ] )
+					? $jn_experience_map[ $jn_experience ]
+					: '/wp-admin';
+			} elseif ( ! empty( get_option( 'big_sky_api_key' ) ) ) {
+				// Transitional fallback: sites provisioned before `jurassic_ninja_experience`
+				// existed relied on `big_sky_api_key` to land in the site editor. Keep this
+				// so those sites continue to behave as they do today.
+				$redirect_to = '/wp-admin/site-editor.php';
+			} else {
+				$redirect_to = '/wp-admin';
+			}
+
+			wp_safe_redirect( $redirect_to );
 			exit( 0 );
 		}
 	} else {
