@@ -350,10 +350,11 @@ function companion_wp_login() {
 			],
 		] );
 		// Store the expiry returned by the extend endpoint so the admin
-		// notice can show a countdown until the site is destroyed.
+		// notice can show a countdown until the site is destroyed. Older
+		// endpoint versions return a bare boolean instead of an object.
 		if ( ! is_wp_error( $response ) ) {
 			$body = json_decode( wp_remote_retrieve_body( $response ), true );
-			if ( ! empty( $body['expires_at'] ) ) {
+			if ( is_array( $body ) && ! empty( $body['expires_at'] ) ) {
 				update_option( 'jurassic_ninja_expires_at', $body['expires_at'] );
 			}
 		}
