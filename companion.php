@@ -125,6 +125,25 @@ function clipboard( $target, $inner = '&#x1f4cb;' ) {
 <?php
 }
 
+/**
+ * Number of whole days until the site is destroyed, computed from the expiry
+ * date stored from the wpcom extend endpoint's response. Null when unknown.
+ *
+ * @return int|null
+ */
+function companion_days_until_destruction() {
+	$expires_at = get_option( 'jurassic_ninja_expires_at' );
+	if ( empty( $expires_at ) ) {
+		return null;
+	}
+	$expires = strtotime( $expires_at . ' 00:00:00 UTC' );
+	if ( false === $expires ) {
+		return null;
+	}
+	$today = strtotime( gmdate( 'Y-m-d' ) . ' 00:00:00 UTC' );
+	return (int) floor( ( $expires - $today ) / DAY_IN_SECONDS );
+}
+
 function companion_admin_notices() {
 	if ( ! companion_get_option( 'jurassic_ninja_credentials_notice', true ) ) {
 		return;
@@ -175,7 +194,18 @@ function companion_admin_notices() {
 			<strong><span id="jurassic_url" class="jurassic_ninja_field"><?php echo esc_html( network_site_url() ); ?></span></strong>
 			<?php clipboard( 'jurassic_url' ); ?>
 			<?php
-                if( defined( 'IS_ATOMIC_JN_ANONYMOUS' ) ) {
+                $days_left = companion_days_until_destruction();
+                if ( null !== $days_left ) {
+                    if ( $days_left > 1 ) {
+                        echo esc_html( sprintf( __( 'will be destroyed in %d days unless you sign in again.' ), $days_left ) );
+                    } elseif ( 1 === $days_left ) {
+                        echo esc_html__( 'will be destroyed in 1 day unless you sign in again.' );
+                    } elseif ( 0 === $days_left ) {
+                        echo esc_html__( 'will be destroyed today unless you sign in again.' );
+                    } else {
+                        echo esc_html__( 'is scheduled for destruction.' );
+                    }
+                } elseif( defined( 'IS_ATOMIC_JN_ANONYMOUS' ) ) {
 	                echo esc_html__( 'will be destroyed 24 hours from site creation.' );
                 } else {
                     echo esc_html__( 'will be destroyed 7 days from last login.' );
@@ -311,7 +341,7 @@ function companion_wp_login() {
 		// Retrieve Shared Token from persistent data.
 		$persistent_data = new Atomic_Persistent_Data();
 		$api_token = $persistent_data->JN_API_TOKEN;
-		wp_remote_post( $url, [
+		$response = wp_remote_post( $url, [
 			'headers' => [
 			],
 			'body'    => [
@@ -319,6 +349,15 @@ function companion_wp_login() {
                 'api_token' => $api_token,
 			],
 		] );
+		// Store the expiry returned by the extend endpoint so the admin
+		// notice can show a countdown until the site is destroyed. Older
+		// endpoint versions return a bare boolean instead of an object.
+		if ( ! is_wp_error( $response ) ) {
+			$body = json_decode( wp_remote_retrieve_body( $response ), true );
+			if ( is_array( $body ) && ! empty( $body['expires_at'] ) ) {
+				update_option( 'jurassic_ninja_expires_at', $body['expires_at'] );
+			}
+		}
 		if ( ! empty ( $auto_login ) ) {
 			// Map of known Jurassic Ninja "experiences" to their landing URL.
 			// Closed list by design — to add an experience, edit this array.
