@@ -305,9 +305,9 @@ function companion_render_feature_flag_row( $name, $definition, array $overrides
 				: esc_html__( 'Off', 'companion' );
 			?>
 		</td>
-		<td>
+		<td style="white-space: nowrap; width: 1%;">
 			<?php foreach ( $choices as $value => $label ) : ?>
-				<label style="margin-right: 1em; white-space: nowrap;">
+				<label style="margin-right: 1em;">
 					<input
 						type="radio"
 						name="<?php echo esc_attr( COMPANION_FEATURE_FLAGS_OPTION ); ?>[<?php echo esc_attr( $name ); ?>]"
