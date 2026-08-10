@@ -214,11 +214,21 @@ function companion_render_feature_flags_section() {
 	}
 
 	?>
-	<table class="widefat striped" style="max-width: 60em;">
+	<style>
+		.companion-feature-flags { width: 100%; }
+		/* Keep the three radios on one line and let Description absorb the slack. */
+		.companion-feature-flags .companion-ff-state { white-space: nowrap; width: 1%; }
+		.companion-feature-flags .companion-ff-state label { margin-right: 1em; }
+		/* 782px is WordPress's own admin breakpoint for narrow screens. */
+		@media screen and ( max-width: 782px ) {
+			.companion-feature-flags .companion-ff-description { display: none; }
+		}
+	</style>
+	<table class="widefat striped companion-feature-flags">
 		<thead>
 			<tr>
 				<th scope="col"><?php esc_html_e( 'Flag', 'companion' ); ?></th>
-				<th scope="col"><?php esc_html_e( 'Description', 'companion' ); ?></th>
+				<th scope="col" class="companion-ff-description"><?php esc_html_e( 'Description', 'companion' ); ?></th>
 				<th scope="col"><?php esc_html_e( 'Currently', 'companion' ); ?></th>
 				<th scope="col"><?php esc_html_e( 'State', 'companion' ); ?></th>
 			</tr>
@@ -286,7 +296,7 @@ function companion_render_feature_flag_row( $name, $definition, array $overrides
 	?>
 	<tr>
 		<td><code><?php echo esc_html( $name ); ?></code></td>
-		<td>
+		<td class="companion-ff-description">
 			<?php
 			if ( $is_registered && '' !== $definition['description'] ) {
 				echo esc_html( $definition['description'] );
@@ -305,9 +315,9 @@ function companion_render_feature_flag_row( $name, $definition, array $overrides
 				: esc_html__( 'Off', 'companion' );
 			?>
 		</td>
-		<td style="white-space: nowrap; width: 1%;">
+		<td class="companion-ff-state">
 			<?php foreach ( $choices as $value => $label ) : ?>
-				<label style="margin-right: 1em;">
+				<label>
 					<input
 						type="radio"
 						name="<?php echo esc_attr( COMPANION_FEATURE_FLAGS_OPTION ); ?>[<?php echo esc_attr( $name ); ?>]"
