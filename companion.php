@@ -14,9 +14,10 @@ if ( is_multisite() && ! is_main_site() ) {
 	return true;
 }
 
-// Jetpack feature flag overrides. Loaded unconditionally and early: the filter it adds
+// Jetpack feature flag overrides. Booted unconditionally and early: the filter it adds
 // has to be in place before anything calls Feature_Flags::is_enabled().
-require_once __DIR__ . '/feature-flags.php';
+require_once __DIR__ . '/class-companion-feature-flags.php';
+Companion_Feature_Flags::init();
 
 if ( defined( 'WP_CLI' ) && WP_CLI ) {
 	require_once __DIR__ . '/class-companion-feature-flag-command.php';

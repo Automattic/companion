@@ -2,13 +2,31 @@
 /**
  * WP-CLI commands for the Jetpack feature flag overrides stored by this plugin.
  *
- * See feature-flags.php for the storage and filter layer these commands drive.
+ * See class-companion-feature-flags.php for the storage and filter layer these commands drive.
  */
 
 /**
  * Turns Jetpack feature flags on and off on this site.
  */
 class Companion_Feature_Flag_Command {
+
+	/**
+	 * Shared settings instance backing these commands.
+	 *
+	 * @var Companion_Feature_Flags
+	 */
+	private $flags;
+
+	/**
+	 * @param Companion_Feature_Flags|null $flags Instance to operate on. Defaults to the
+	 *                                            one booted by the plugin — WP-CLI
+	 *                                            constructs command classes with no args.
+	 */
+	public function __construct( ?Companion_Feature_Flags $flags = null ) {
+		$this->flags = $flags instanceof Companion_Feature_Flags
+			? $flags
+			: Companion_Feature_Flags::instance();
+	}
 
 	/**
 	 * Lists Jetpack feature flags and their current state.
@@ -44,10 +62,10 @@ class Companion_Feature_Flag_Command {
 	 * @return void
 	 */
 	public function list_( $args, $assoc_args ) {
-		$flags     = companion_get_registered_feature_flags();
-		$overrides = companion_get_feature_flag_overrides();
+		$flags     = $this->flags->get_registered_flags();
+		$overrides = $this->flags->get_overrides();
 
-		if ( ! companion_has_feature_flags_package() ) {
+		if ( ! Companion_Feature_Flags::has_package() ) {
 			WP_CLI::warning( 'The Jetpack feature flags package is not loaded on this site, so no flags can be discovered.' );
 		}
 
@@ -58,7 +76,7 @@ class Companion_Feature_Flag_Command {
 				'flag'        => $name,
 				'default'     => $definition['default'] ? 'on' : 'off',
 				'override'    => array_key_exists( $name, $overrides ) ? ( $overrides[ $name ] ? 'on' : 'off' ) : '-',
-				'effective'   => companion_is_feature_flag_enabled( $name ) ? 'on' : 'off',
+				'effective'   => Companion_Feature_Flags::is_enabled( $name ) ? 'on' : 'off',
 				'owner'       => '' === $definition['owner'] ? '-' : $definition['owner'],
 				'description' => '' === $definition['description'] ? '-' : $definition['description'],
 			);
@@ -70,7 +88,7 @@ class Companion_Feature_Flag_Command {
 				'flag'        => $name,
 				'default'     => '-',
 				'override'    => $enabled ? 'on' : 'off',
-				'effective'   => companion_is_feature_flag_enabled( $name ) ? 'on' : 'off',
+				'effective'   => Companion_Feature_Flags::is_enabled( $name ) ? 'on' : 'off',
 				'owner'       => '-',
 				'description' => 'Not registered on this site.',
 			);
@@ -157,8 +175,8 @@ class Companion_Feature_Flag_Command {
 				WP_CLI::error( 'Pass either a flag name or --all, not both.' );
 			}
 
-			$count = count( companion_get_feature_flag_overrides() );
-			companion_update_feature_flag_overrides( array() );
+			$count = count( $this->flags->get_overrides() );
+			$this->flags->update_overrides( array() );
 			WP_CLI::success( sprintf( 'Cleared %d feature flag override(s).', $count ) );
 
 			return;
@@ -169,7 +187,7 @@ class Companion_Feature_Flag_Command {
 		}
 
 		$name      = $args[0];
-		$overrides = companion_get_feature_flag_overrides();
+		$overrides = $this->flags->get_overrides();
 
 		if ( ! array_key_exists( $name, $overrides ) ) {
 			WP_CLI::warning( sprintf( '%s has no stored override.', $name ) );
@@ -178,7 +196,7 @@ class Companion_Feature_Flag_Command {
 		}
 
 		unset( $overrides[ $name ] );
-		companion_update_feature_flag_overrides( $overrides );
+		$this->flags->update_overrides( $overrides );
 
 		WP_CLI::success( sprintf( '%s now follows its registered default.', $name ) );
 	}
@@ -195,19 +213,19 @@ class Companion_Feature_Flag_Command {
 	 * @return void
 	 */
 	private function set_override( $name, $enabled ) {
-		if ( ! companion_is_valid_feature_flag_name( $name ) ) {
+		if ( ! Companion_Feature_Flags::is_valid_name( $name ) ) {
 			WP_CLI::error( sprintf( 'Invalid feature flag name "%s". Names must match /^[a-z0-9][a-z0-9_-]*$/.', $name ) );
 		}
 
-		$registered = companion_get_registered_feature_flags();
+		$registered = $this->flags->get_registered_flags();
 
 		if ( ! isset( $registered[ $name ] ) ) {
 			WP_CLI::warning( sprintf( '%s is not registered on this site. Storing the override anyway.', $name ) );
 		}
 
-		$overrides          = companion_get_feature_flag_overrides();
+		$overrides          = $this->flags->get_overrides();
 		$overrides[ $name ] = $enabled;
-		companion_update_feature_flag_overrides( $overrides );
+		$this->flags->update_overrides( $overrides );
 
 		WP_CLI::success( sprintf( '%s is now forced %s.', $name, $enabled ? 'on' : 'off' ) );
 	}
