@@ -18,14 +18,24 @@ class Companion_Feature_Flag_Command {
 	private $flags;
 
 	/**
-	 * @param Companion_Feature_Flags|null $flags Instance to operate on. Defaults to the
-	 *                                            one booted by the plugin — WP-CLI
-	 *                                            constructs command classes with no args.
+	 * @param Companion_Feature_Flags $flags Instance to operate on.
 	 */
-	public function __construct( ?Companion_Feature_Flags $flags = null ) {
-		$this->flags = $flags instanceof Companion_Feature_Flags
-			? $flags
-			: Companion_Feature_Flags::instance();
+	public function __construct( Companion_Feature_Flags $flags ) {
+		$this->flags = $flags;
+	}
+
+	/**
+	 * Registers the command against a specific settings instance.
+	 *
+	 * Registers an already-constructed object rather than a class name, so the command is
+	 * bound to the caller's instance instead of having to find one for itself.
+	 *
+	 * @param Companion_Feature_Flags $flags Instance the command should operate on.
+	 *
+	 * @return void
+	 */
+	public static function register( Companion_Feature_Flags $flags ) {
+		WP_CLI::add_command( 'companion feature-flag', new self( $flags ) );
 	}
 
 	/**
@@ -230,5 +240,3 @@ class Companion_Feature_Flag_Command {
 		WP_CLI::success( sprintf( '%s is now forced %s.', $name, $enabled ? 'on' : 'off' ) );
 	}
 }
-
-WP_CLI::add_command( 'companion feature-flag', 'Companion_Feature_Flag_Command' );

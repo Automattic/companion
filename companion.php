@@ -17,10 +17,11 @@ if ( is_multisite() && ! is_main_site() ) {
 // Jetpack feature flag overrides. Booted early on sites where this plugin runs normally: the filter it adds
 // has to be in place before anything calls Feature_Flags::is_enabled().
 require_once __DIR__ . '/class-companion-feature-flags.php';
-Companion_Feature_Flags::init();
+$companion_feature_flags = Companion_Feature_Flags::init();
 
 if ( defined( 'WP_CLI' ) && WP_CLI ) {
 	require_once __DIR__ . '/class-companion-feature-flag-command.php';
+	Companion_Feature_Flag_Command::register( $companion_feature_flags );
 }
 
 $companion_api_base_url = get_option( 'companion_api_base_url' );

@@ -77,13 +77,6 @@ class Companion_Feature_Flags {
 	private $section_title;
 
 	/**
-	 * Most recently booted instance, so callers without a reference (WP-CLI) can find one.
-	 *
-	 * @var self|null
-	 */
-	private static $instance = null;
-
-	/**
 	 * @param array $args {
 	 *     Optional. Configuration overrides.
 	 *
@@ -114,7 +107,11 @@ class Companion_Feature_Flags {
 	}
 
 	/**
-	 * Builds an instance, hooks it up, and remembers it for self::instance().
+	 * Builds an instance and hooks it up.
+	 *
+	 * Deliberately returns the instance rather than stashing it in a static: two plugins
+	 * can each boot their own, and neither can end up holding the other's configuration.
+	 * Callers that need it later — the WP-CLI command — are handed it explicitly.
 	 *
 	 * @param array $args Configuration overrides. See the constructor.
 	 *
@@ -124,25 +121,7 @@ class Companion_Feature_Flags {
 		$instance = new self( $args );
 		$instance->register_hooks();
 
-		self::$instance = $instance;
-
 		return $instance;
-	}
-
-	/**
-	 * Returns the booted instance, constructing a default one if nothing booted yet.
-	 *
-	 * For callers that cannot be handed a reference — chiefly the WP-CLI command, which
-	 * WP-CLI instantiates itself.
-	 *
-	 * @return self
-	 */
-	public static function instance() {
-		if ( null === self::$instance ) {
-			self::$instance = new self();
-		}
-
-		return self::$instance;
 	}
 
 	/**
@@ -173,11 +152,14 @@ class Companion_Feature_Flags {
 	 *
 	 * Applies the stored override, if there is one, on top of the registered default.
 	 *
-	 * This hooks the generic filter at the default priority, which the package runs before
-	 * the per-flag `jetpack_feature_flag_enabled_{$name}` filter, so a per-flag pin in code
-	 * still beats the site setting. Note that only per-flag pins are safe: another callback
-	 * on the *generic* filter is overruled by a stored override regardless of priority,
-	 * because we return the override unconditionally.
+	 * This hooks the generic filter at priority 10, and the package runs the whole generic
+	 * filter before the per-flag `jetpack_feature_flag_enabled_{$name}` filter, so a
+	 * per-flag pin in code always beats the site setting.
+	 *
+	 * Against other callbacks on the *generic* filter, ordinary priority rules apply: one
+	 * below priority 10 runs first and we discard its value, one above 10 runs after us and
+	 * overrules the stored override. A rollout or cohort policy layer that must win should
+	 * hook the generic filter above 10, or use the per-flag filter.
 	 *
 	 * @param bool   $enabled Whether the flag is enabled.
 	 * @param string $name    Feature flag name.
@@ -215,12 +197,24 @@ class Companion_Feature_Flags {
 	/**
 	 * Stores the overrides.
 	 *
-	 * @param array<string, bool> $overrides Overrides keyed by flag name.
+	 * Normalizes here rather than trusting callers, so this stays the single chokepoint
+	 * that upholds the stored shape: valid names, real booleans. Without the cast a
+	 * truthy non-boolean would persist, read back fine, and then be silently dropped by
+	 * sanitize() on the next save from an admin request.
+	 *
+	 * @param array<string, mixed> $overrides Overrides keyed by flag name.
 	 *
 	 * @return void
 	 */
 	public function update_overrides( array $overrides ) {
-		update_option( $this->option, $overrides );
+		$clean = array();
+		foreach ( $overrides as $name => $enabled ) {
+			if ( self::is_valid_name( $name ) ) {
+				$clean[ $name ] = (bool) $enabled;
+			}
+		}
+
+		update_option( $this->option, $clean );
 	}
 
 	/**
@@ -478,17 +472,21 @@ class Companion_Feature_Flags {
 					?>
 					<em><?php esc_html_e( 'Not overridable — invalid name', 'companion' ); ?></em>
 				<?php else : ?>
-					<?php foreach ( $choices as $value => $label ) : ?>
-						<label>
-							<input
-								type="radio"
-								name="<?php echo esc_attr( $this->option ); ?>[<?php echo esc_attr( $name ); ?>]"
-								value="<?php echo esc_attr( $value ); ?>"
-								<?php checked( $state, $value ); ?>
-							/>
-							<?php echo esc_html( $label ); ?>
-						</label>
-					<?php endforeach; ?>
+					<?php // Every row's radios read identically to a screen reader without a group name. ?>
+					<fieldset>
+						<legend class="screen-reader-text"><?php echo esc_html( $name ); ?></legend>
+						<?php foreach ( $choices as $value => $label ) : ?>
+							<label>
+								<input
+									type="radio"
+									name="<?php echo esc_attr( $this->option ); ?>[<?php echo esc_attr( $name ); ?>]"
+									value="<?php echo esc_attr( $value ); ?>"
+									<?php checked( $state, $value ); ?>
+								/>
+								<?php echo esc_html( $label ); ?>
+							</label>
+						<?php endforeach; ?>
+					</fieldset>
 				<?php endif; ?>
 			</td>
 		</tr>
