@@ -18,6 +18,8 @@ class Companion_Feature_Flag_Command {
 	private $flags;
 
 	/**
+	 * Binds the commands to the settings instance they operate on.
+	 *
 	 * @param Companion_Feature_Flags $flags Instance to operate on.
 	 */
 	public function __construct( Companion_Feature_Flags $flags ) {
@@ -75,12 +77,26 @@ class Companion_Feature_Flag_Command {
 	 * @return void
 	 */
 	public function list_( $args, $assoc_args ) {
-		$flags     = Companion_Feature_Flags::get_registered_flags();
-		$overrides = $this->flags->get_overrides();
+		$flags       = Companion_Feature_Flags::get_registered_flags();
+		$overrides   = $this->flags->get_overrides();
+		$has_package = Companion_Feature_Flags::has_package();
 
-		if ( ! Companion_Feature_Flags::has_package() ) {
+		if ( ! $has_package ) {
 			WP_CLI::warning( 'The Jetpack feature flags package is not loaded on this site, so no flags can be discovered.' );
 		}
+
+		/*
+		 * Without the package there is nothing to resolve a flag against, and is_enabled()
+		 * returns a hard false. Printing that as "off" next to an override of "on" reads as a
+		 * resolved state rather than an unknowable one, so report it as unknown instead.
+		 */
+		$effective = function ( $name ) use ( $has_package ) {
+			if ( ! $has_package ) {
+				return '-';
+			}
+
+			return Companion_Feature_Flags::is_enabled( $name ) ? 'on' : 'off';
+		};
 
 		$rows = array();
 
@@ -89,7 +105,7 @@ class Companion_Feature_Flag_Command {
 				'flag'        => $name,
 				'default'     => $definition['default'] ? 'on' : 'off',
 				'override'    => array_key_exists( $name, $overrides ) ? ( $overrides[ $name ] ? 'on' : 'off' ) : '-',
-				'effective'   => Companion_Feature_Flags::is_enabled( $name ) ? 'on' : 'off',
+				'effective'   => $effective( $name ),
 				'owner'       => '' === $definition['owner'] ? '-' : $definition['owner'],
 				'description' => '' === $definition['description'] ? '-' : $definition['description'],
 			);
@@ -101,7 +117,7 @@ class Companion_Feature_Flag_Command {
 				'flag'        => $name,
 				'default'     => '-',
 				'override'    => $enabled ? 'on' : 'off',
-				'effective'   => Companion_Feature_Flags::is_enabled( $name ) ? 'on' : 'off',
+				'effective'   => $effective( $name ),
 				'owner'       => '-',
 				'description' => 'Not registered on this site.',
 			);
@@ -170,10 +186,14 @@ class Companion_Feature_Flag_Command {
 	 * [--all]
 	 * : Clear every stored override.
 	 *
+	 * [--yes]
+	 * : Skip the confirmation prompt when clearing every override.
+	 *
 	 * ## EXAMPLES
 	 *
 	 *     wp companion feature-flag reset newsletter-new-subscribe-form
 	 *     wp companion feature-flag reset --all
+	 *     wp companion feature-flag reset --all --yes
 	 *
 	 * @param array $args       Positional arguments.
 	 * @param array $assoc_args Associative arguments.
@@ -189,6 +209,10 @@ class Companion_Feature_Flag_Command {
 			}
 
 			$count = count( $this->flags->get_overrides() );
+
+			// Auto-passes when --yes is supplied, so scripted callers are unaffected.
+			WP_CLI::confirm( sprintf( 'Clear %d feature flag override(s)?', $count ), $assoc_args );
+
 			$this->flags->update_overrides( array() );
 			WP_CLI::success( sprintf( 'Cleared %d feature flag override(s).', $count ) );
 
@@ -209,7 +233,12 @@ class Companion_Feature_Flag_Command {
 		}
 
 		unset( $overrides[ $name ] );
-		$this->flags->update_overrides( $overrides );
+		$stored = $this->flags->update_overrides( $overrides );
+
+		// Same reasoning as set_override(): report what was stored, not what was asked for.
+		if ( array_key_exists( $name, $stored ) ) {
+			WP_CLI::error( sprintf( 'Could not clear the override for "%s".', $name ) );
+		}
 
 		WP_CLI::success( sprintf( '%s now follows its registered default.', $name ) );
 	}
