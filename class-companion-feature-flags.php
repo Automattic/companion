@@ -173,9 +173,11 @@ class Companion_Feature_Flags {
 	 *
 	 * Applies the stored override, if there is one, on top of the registered default.
 	 *
-	 * This hooks the generic filter at the default priority, which runs before the per-flag
-	 * `jetpack_feature_flag_enabled_{$name}` filter. A deliberate code-level pin therefore
-	 * still wins — we override the default, not someone else's explicit decision.
+	 * This hooks the generic filter at the default priority, which the package runs before
+	 * the per-flag `jetpack_feature_flag_enabled_{$name}` filter, so a per-flag pin in code
+	 * still beats the site setting. Note that only per-flag pins are safe: another callback
+	 * on the *generic* filter is overruled by a stored override regardless of priority,
+	 * because we return the override unconditionally.
 	 *
 	 * @param bool   $enabled Whether the flag is enabled.
 	 * @param string $name    Feature flag name.
@@ -313,6 +315,11 @@ class Companion_Feature_Flags {
 	 * Turns the posted radio values into a sparse override map. `default` drops the flag
 	 * from the map entirely so it goes back to following its registered default.
 	 *
+	 * register_setting() installs this on `sanitize_option_{$option}`, which WordPress runs
+	 * for *every* update_option() on that option once admin_init has fired — not just form
+	 * submissions. So booleans are accepted alongside the form's 'on'/'off' strings, or a
+	 * programmatic update_overrides() from an admin request would silently store nothing.
+	 *
 	 * A non-array means nothing was submitted for this option, which is what options.php
 	 * hands us when a registered option is missing from the request. Keeping the stored
 	 * value in that case stops an unrelated save from wiping every override.
@@ -332,9 +339,9 @@ class Companion_Feature_Flags {
 				continue;
 			}
 
-			if ( 'on' === $state ) {
+			if ( 'on' === $state || true === $state ) {
 				$overrides[ $name ] = true;
-			} elseif ( 'off' === $state ) {
+			} elseif ( 'off' === $state || false === $state ) {
 				$overrides[ $name ] = false;
 			}
 		}
@@ -463,17 +470,26 @@ class Companion_Feature_Flags {
 				?>
 			</td>
 			<td class="companion-ff-state">
-				<?php foreach ( $choices as $value => $label ) : ?>
-					<label>
-						<input
-							type="radio"
-							name="<?php echo esc_attr( $this->option ); ?>[<?php echo esc_attr( $name ); ?>]"
-							value="<?php echo esc_attr( $value ); ?>"
-							<?php checked( $state, $value ); ?>
-						/>
-						<?php echo esc_html( $label ); ?>
-					</label>
-				<?php endforeach; ?>
+				<?php if ( ! self::is_valid_name( $name ) ) : ?>
+					<?php
+					// The package only lint-checks names, so a malformed one can reach us at
+					// runtime. Storing it is impossible, so say so rather than offering radios
+					// whose value would be dropped on save.
+					?>
+					<em><?php esc_html_e( 'Not overridable — invalid name', 'companion' ); ?></em>
+				<?php else : ?>
+					<?php foreach ( $choices as $value => $label ) : ?>
+						<label>
+							<input
+								type="radio"
+								name="<?php echo esc_attr( $this->option ); ?>[<?php echo esc_attr( $name ); ?>]"
+								value="<?php echo esc_attr( $value ); ?>"
+								<?php checked( $state, $value ); ?>
+							/>
+							<?php echo esc_html( $label ); ?>
+						</label>
+					<?php endforeach; ?>
+				<?php endif; ?>
 			</td>
 		</tr>
 		<?php
