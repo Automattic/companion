@@ -217,7 +217,7 @@ class Companion_Feature_Flag_Command {
 			WP_CLI::error( sprintf( 'Invalid feature flag name "%s". Names must match /^[a-z0-9][a-z0-9_-]*$/.', $name ) );
 		}
 
-		$registered = $this->flags->get_registered_flags();
+		$registered = Companion_Feature_Flags::get_registered_flags();
 
 		if ( ! isset( $registered[ $name ] ) ) {
 			WP_CLI::warning( sprintf( '%s is not registered on this site. Storing the override anyway.', $name ) );
