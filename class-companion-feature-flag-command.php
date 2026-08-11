@@ -62,7 +62,7 @@ class Companion_Feature_Flag_Command {
 	 * @return void
 	 */
 	public function list_( $args, $assoc_args ) {
-		$flags     = $this->flags->get_registered_flags();
+		$flags     = Companion_Feature_Flags::get_registered_flags();
 		$overrides = $this->flags->get_overrides();
 
 		if ( ! Companion_Feature_Flags::has_package() ) {
