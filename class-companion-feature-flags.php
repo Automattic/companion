@@ -26,6 +26,18 @@
  *             'settings_page'  => 'my_plugin_settings',
  *         )
  *     );
+ *
+ * The host page has to hold up four things, none of which this class can enforce:
+ *
+ * 1. The page identified by `settings_page` exists.
+ * 2. Its form posts to `options.php` and calls `settings_fields( $settings_group )`, so
+ *    the option is in the allowed list for that group.
+ * 3. It calls `do_settings_sections( $settings_page )` where the section should render.
+ * 4. It renders its own submit button. This class contributes a settings *section* and no
+ *    `add_settings_field`, so a page that decides whether to draw a Save button by
+ *    counting its registered fields will not count this one, and the section would render
+ *    with no way to save it. Companion's page is safe because it always has fields of its
+ *    own; a page whose only content is this section is not.
  */
 class Companion_Feature_Flags {
 
@@ -113,6 +125,12 @@ class Companion_Feature_Flags {
 	 * can each boot their own, and neither can end up holding the other's configuration.
 	 * Callers that need it later — the WP-CLI command — are handed it explicitly.
 	 *
+	 * Configuration stays separate, but flag *resolution* does not: every instance hooks
+	 * the generic filter at priority 10, so if the same flag is overridden in two option
+	 * maps, the instance that registered its filter last wins. Deterministic, but it
+	 * depends on plugin load order — give one instance a different priority if that
+	 * matters.
+	 *
 	 * @param array $args Configuration overrides. See the constructor.
 	 *
 	 * @return self
@@ -136,6 +154,10 @@ class Companion_Feature_Flags {
 
 	/**
 	 * Name of the option overrides are stored in.
+	 *
+	 * Nothing in this plugin calls this — it exists for consumers that configured a custom
+	 * option name and need to reach it (migrations, debugging, tests) without re-deriving
+	 * the value they passed in.
 	 *
 	 * @return string
 	 */
@@ -180,18 +202,7 @@ class Companion_Feature_Flags {
 	public function get_overrides() {
 		$overrides = get_option( $this->option, array() );
 
-		if ( ! is_array( $overrides ) ) {
-			return array();
-		}
-
-		$clean = array();
-		foreach ( $overrides as $name => $enabled ) {
-			if ( self::is_valid_name( $name ) ) {
-				$clean[ $name ] = (bool) $enabled;
-			}
-		}
-
-		return $clean;
+		return is_array( $overrides ) ? self::normalize( $overrides ) : array();
 	}
 
 	/**
@@ -204,17 +215,15 @@ class Companion_Feature_Flags {
 	 *
 	 * @param array<string, mixed> $overrides Overrides keyed by flag name.
 	 *
-	 * @return void
+	 * @return array<string, bool> The map as actually stored, so callers can confirm what
+	 *                             survived normalization rather than assuming.
 	 */
 	public function update_overrides( array $overrides ) {
-		$clean = array();
-		foreach ( $overrides as $name => $enabled ) {
-			if ( self::is_valid_name( $name ) ) {
-				$clean[ $name ] = (bool) $enabled;
-			}
-		}
+		$clean = self::normalize( $overrides );
 
 		update_option( $this->option, $clean );
+
+		return $clean;
 	}
 
 	/**
@@ -250,7 +259,37 @@ class Companion_Feature_Flags {
 	 * @return bool
 	 */
 	public static function is_valid_name( $name ) {
+		// NAME_PATTERN accepts digit-leading names, and PHP coerces integer-like string
+		// array keys to int — so a legal name such as "123" arrives here as an int once it
+		// has been through an array. Without this cast the validator would reject exactly
+		// the names the pattern was written to allow.
+		if ( is_int( $name ) ) {
+			$name = (string) $name;
+		}
+
 		return is_string( $name ) && 1 === preg_match( self::NAME_PATTERN, $name );
+	}
+
+	/**
+	 * Reduces a map to the stored shape: valid flag names, real booleans.
+	 *
+	 * Single definition of what a stored override map looks like. Keeping this in one
+	 * place matters — an earlier version of this class validated separately on read, on
+	 * write, and on sanitize, and the three drifted apart.
+	 *
+	 * @param array<string, mixed> $overrides Overrides keyed by flag name.
+	 *
+	 * @return array<string, bool>
+	 */
+	private static function normalize( array $overrides ) {
+		$clean = array();
+		foreach ( $overrides as $name => $enabled ) {
+			if ( self::is_valid_name( $name ) ) {
+				$clean[ $name ] = (bool) $enabled;
+			}
+		}
+
+		return $clean;
 	}
 
 	/**
@@ -327,12 +366,10 @@ class Companion_Feature_Flags {
 			return $this->get_overrides();
 		}
 
+		// Map the form's vocabulary onto booleans; 'default' and anything unexpected drop
+		// out here. Name validation and the bool cast belong to normalize().
 		$overrides = array();
 		foreach ( $input as $name => $state ) {
-			if ( ! self::is_valid_name( $name ) ) {
-				continue;
-			}
-
 			if ( 'on' === $state || true === $state ) {
 				$overrides[ $name ] = true;
 			} elseif ( 'off' === $state || false === $state ) {
@@ -340,7 +377,7 @@ class Companion_Feature_Flags {
 			}
 		}
 
-		return $overrides;
+		return self::normalize( $overrides );
 	}
 
 	/**
@@ -386,11 +423,16 @@ class Companion_Feature_Flags {
 				foreach ( $flags as $name => $definition ) {
 					$this->render_row( $name, $definition, $overrides );
 				}
-
-				if ( ! empty( $orphaned ) ) {
-					?>
+				?>
+			</tbody>
+			<?php if ( ! empty( $orphaned ) ) : ?>
+				<?php
+				// Its own row group: the heading labels the rows beneath it, so the scope is
+				// rowgroup, and that only binds to the orphaned rows if they are the group.
+				?>
+				<tbody>
 					<tr>
-						<th colspan="4" scope="colgroup">
+						<th colspan="4" scope="rowgroup">
 							<?php esc_html_e( 'Not registered', 'companion' ); ?>
 							<span style="font-weight: normal;">
 								&mdash; <?php esc_html_e( 'left over from a flag that no longer exists, or set before its code landed.', 'companion' ); ?>
@@ -401,9 +443,9 @@ class Companion_Feature_Flags {
 					foreach ( array_keys( $orphaned ) as $name ) {
 						$this->render_row( $name, null, $overrides );
 					}
-				}
-				?>
-			</tbody>
+					?>
+				</tbody>
+			<?php endif; ?>
 		</table>
 		<?php
 	}

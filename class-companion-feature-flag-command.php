@@ -31,11 +31,14 @@ class Companion_Feature_Flag_Command {
 	 * bound to the caller's instance instead of having to find one for itself.
 	 *
 	 * @param Companion_Feature_Flags $flags Instance the command should operate on.
+	 * @param string                  $name  Command name to register under. Configurable so
+	 *                                       a plugin reusing the settings class can expose
+	 *                                       the same commands in its own namespace.
 	 *
 	 * @return void
 	 */
-	public static function register( Companion_Feature_Flags $flags ) {
-		WP_CLI::add_command( 'companion feature-flag', new self( $flags ) );
+	public static function register( Companion_Feature_Flags $flags, $name = 'companion feature-flag' ) {
+		WP_CLI::add_command( $name, new self( $flags ) );
 	}
 
 	/**
@@ -235,7 +238,14 @@ class Companion_Feature_Flag_Command {
 
 		$overrides          = $this->flags->get_overrides();
 		$overrides[ $name ] = $enabled;
-		$this->flags->update_overrides( $overrides );
+		$stored             = $this->flags->update_overrides( $overrides );
+
+		// Report what was actually stored rather than what we asked for: normalization can
+		// drop an entry, and a success message for a write that did not happen is worse
+		// than an error.
+		if ( ! array_key_exists( $name, $stored ) ) {
+			WP_CLI::error( sprintf( 'Could not store an override for "%s".', $name ) );
+		}
 
 		WP_CLI::success( sprintf( '%s is now forced %s.', $name, $enabled ? 'on' : 'off' ) );
 	}
