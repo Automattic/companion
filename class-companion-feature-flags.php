@@ -362,7 +362,8 @@ class Companion_Feature_Flags {
 		?>
 		<style>
 			.companion-feature-flags { width: 100%; }
-			/* Keep the three radios on one line and let Description absorb the slack. */
+			/* Keep flag names and the three radios on one line; Description absorbs the slack. */
+			.companion-feature-flags .companion-ff-flag,
 			.companion-feature-flags .companion-ff-state { white-space: nowrap; width: 1%; }
 			.companion-feature-flags .companion-ff-state label { margin-right: 1em; }
 			/* 782px is WordPress's own admin breakpoint for narrow screens. */
@@ -441,7 +442,7 @@ class Companion_Feature_Flags {
 
 		?>
 		<tr>
-			<td><code><?php echo esc_html( $name ); ?></code></td>
+			<td class="companion-ff-flag"><code><?php echo esc_html( $name ); ?></code></td>
 			<td class="companion-ff-description">
 				<?php
 				if ( $is_registered && '' !== $definition['description'] ) {
