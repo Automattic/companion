@@ -89,6 +89,8 @@ class Companion_Feature_Flags {
 	private $section_title;
 
 	/**
+	 * Configures the option, settings group, page, and section this instance uses.
+	 *
 	 * @param array $args {
 	 *     Optional. Configuration overrides.
 	 *
@@ -235,11 +237,13 @@ class Companion_Feature_Flags {
 	 * @return array<string, array> Flag definitions keyed by name.
 	 */
 	public static function get_registered_flags() {
-		if ( ! self::has_package() ) {
+		if ( ! self::has_method( 'all' ) ) {
 			return array();
 		}
 
-		return call_user_func( array( self::PACKAGE_CLASS, 'all' ) );
+		$flags = call_user_func( array( self::PACKAGE_CLASS, 'all' ) );
+
+		return is_array( $flags ) ? $flags : array();
 	}
 
 	/**
@@ -249,6 +253,21 @@ class Companion_Feature_Flags {
 	 */
 	public static function has_package() {
 		return class_exists( self::PACKAGE_CLASS );
+	}
+
+	/**
+	 * Whether the package exposes a given static method.
+	 *
+	 * The package is a 0.x release and nothing here pins a version, so the method is checked
+	 * rather than just the class. Without this a rename upstream would fatal mid-render
+	 * instead of degrading to the same empty state a missing package already produces.
+	 *
+	 * @param string $method Method name.
+	 *
+	 * @return bool
+	 */
+	private static function has_method( $method ) {
+		return is_callable( array( self::PACKAGE_CLASS, $method ) );
 	}
 
 	/**
@@ -301,7 +320,7 @@ class Companion_Feature_Flags {
 	 * @return bool
 	 */
 	public static function is_enabled( $name ) {
-		if ( ! self::has_package() ) {
+		if ( ! self::has_method( 'is_enabled' ) ) {
 			return false;
 		}
 
@@ -319,13 +338,18 @@ class Companion_Feature_Flags {
 	 * registers after any sections the page builds itself and therefore renders last, and
 	 * registers the option into the page's own settings group so its Save button persists it.
 	 *
+	 * The option registers whether or not the package is present; only the section is gated.
+	 * register_setting() is what puts the option on the settings group's allowed list and
+	 * installs the sanitize callback, so gating it means options.php silently discards a
+	 * posted value while still reporting "Settings saved" — and programmatic writes during an
+	 * admin request skip sanitizing. That matters beyond the narrow case of Jetpack being
+	 * deactivated between render and save: no plugin currently ships the feature flags
+	 * package, so package-absent is the normal state rather than an edge case. There is
+	 * nothing to render without the package, hence the guard staying on the section alone.
+	 *
 	 * @return void
 	 */
 	public function register_section() {
-		if ( ! self::has_package() ) {
-			return;
-		}
-
 		register_setting(
 			$this->settings_group,
 			$this->option,
@@ -333,6 +357,10 @@ class Companion_Feature_Flags {
 				'sanitize_callback' => array( $this, 'sanitize' ),
 			)
 		);
+
+		if ( ! self::has_package() ) {
+			return;
+		}
 
 		add_settings_section(
 			$this->section_id,
@@ -492,6 +520,7 @@ class Companion_Feature_Flags {
 					echo esc_html( $definition['description'] );
 				}
 				if ( $is_registered && '' !== $definition['owner'] ) {
+					// translators: %s is the owning package, plugin, or product area for the flag.
 					echo ' <em>' . esc_html( sprintf( __( 'Owner: %s', 'companion' ), $definition['owner'] ) ) . '</em>';
 				}
 				?>
