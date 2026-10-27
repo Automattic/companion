@@ -57,6 +57,25 @@ final class Companion_Rehearsal_Rest {
 		);
 		register_rest_route(
 			'rehearsal/v1',
+			'/bundle',
+			array(
+				'methods'             => 'POST',
+				'callback'            => static function ( $request ) {
+					return rest_ensure_response( array( 'url' => Companion_Rehearsal_Share::bundle_url( $request['ids'] ) ) );
+				},
+				'permission_callback' => $admin,
+				'args'                => array(
+					'ids' => array(
+						'type'     => 'array',
+						'items'    => array( 'type' => 'integer' ),
+						'minItems' => 1,
+						'required' => true,
+					),
+				),
+			)
+		);
+		register_rest_route(
+			'rehearsal/v1',
 			'/role-user',
 			array(
 				'methods'             => 'POST',

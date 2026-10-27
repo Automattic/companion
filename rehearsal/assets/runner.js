@@ -37,6 +37,7 @@
 		<div class="rh-toolbar">
 			<button type="button" class="button button-primary" id="rh-run">Run selected</button>
 			<button type="button" class="button" id="rh-run-failed">Run failed</button>
+			<button type="button" class="button" id="rh-playwright" title="Export the selected rehearsals as one Playwright test file">Run in Playwright</button>
 			<span class="rh-toolbar-sep" aria-hidden="true"></span>
 			<button type="button" class="button" id="rh-add">Add rehearsal</button>
 			<button type="button" class="button" id="rh-install">Install from link</button>
@@ -220,7 +221,7 @@
 	async function copyFetched( url, button ) {
 		const label = button.textContent;
 		button.textContent = 'Copying…';
-		const text = fetch( url, { credentials: 'omit' } ).then( ( res ) => {
+		const text = fetch( url, { credentials: 'same-origin' } ).then( ( res ) => {
 			if ( ! res.ok ) throw new Error( `HTTP ${ res.status }` );
 			return res.text();
 		} );
@@ -506,16 +507,17 @@
 				${ r.source ? `<dt>Installed from</dt><dd><a href="${ esc( r.source ) }" target="_blank" rel="noopener">${ esc( r.source ) }</a></dd>` : '' }
 			</dl>
 			<div class="rh-share">
-				<label for="rh-m-share">Share link</label>
-				<div class="rh-share-row"><input id="rh-m-share" type="text" readonly value="${ esc( r.shareUrl ) }">
+				<label for="rh-m-share">Share</label>
+				<div class="rh-share-link"><input id="rh-m-share" type="text" readonly value="${ esc( r.shareUrl ) }">
 					<button type="button" class="button" data-copy-share>Copy link</button></div>
-				<p class="rh-muted">Anyone with this link can see the rehearsal and install it on their own site. Add <code>&amp;format=json</code> for CI.</p>
-				<div class="rh-share-row">
-					<button type="button" class="button" data-copy-gh>Copy for GitHub</button>
-					<button type="button" class="button" data-copy-raw>Copy rehearsal JSON</button>
-					<button type="button" class="button" data-copy-pw>Copy as Playwright test</button>
-					<span class="rh-muted">Copies the saved version, ready to paste into a PR description.</span>
+				<div class="rh-share-as"><span>Copy as:</span>
+					<button type="button" class="button-link" data-copy-gh title="Summary and folded JSON, for a PR description">GitHub</button>
+					<span aria-hidden="true">·</span>
+					<button type="button" class="button-link" data-copy-raw title="The steps as JSON. For scripts, the link plus &amp;format=json returns the same.">JSON</button>
+					<span aria-hidden="true">·</span>
+					<button type="button" class="button-link" data-copy-pw title="A standalone .spec.ts file">Playwright test</button>
 				</div>
+				<p class="rh-muted">Anyone with the link can view and install this rehearsal. Copies use the saved version.</p>
 			</div>`
 			: '';
 		showModal(
@@ -630,6 +632,46 @@
 		if ( url ) previewInstall();
 	}
 
+	// The selected rehearsals as one Playwright file, with the steps to run it from a terminal or CI.
+	async function openPlaywright() {
+		const close = '<span class="rh-spacer"></span><button type="button" class="button" data-close>Close</button>';
+		const picked = state.recipes.filter( ( r ) => r.checked );
+		if ( ! picked.length ) {
+			showModal( 'Run in Playwright', '<p>Select the rehearsals to export with the checkboxes in the list, then try again.</p>', close );
+			return;
+		}
+		showModal( 'Run in Playwright', '<p class="rh-muted">Preparing the test file…</p>', close );
+		let url;
+		try {
+			url = ( await apiFetch( { path: '/rehearsal/v1/bundle', method: 'POST', data: { ids: picked.map( ( r ) => r.id ) } } ) ).url;
+		} catch ( e ) {
+			modalMessage( '#rh-modal-error', e.message || 'Could not prepare the test file.' );
+			return;
+		}
+		const site = data.homeUrl;
+		const roles = [ ...new Set( picked.map( ( r ) => r.recipe.role ).filter( ( role ) => role && role !== 'administrator' ) ) ];
+		const env = ( role ) => 'STORAGE_STATE_' + role.toUpperCase().replace( /-/g, '_' );
+		const cmd = ( text ) => `<div class="rh-cmd"><code>${ esc( text ) }</code><button type="button" class="button button-small" data-copy-cmd>Copy</button></div>`;
+		const run = [ 'STORAGE_STATE=auth.json', ...roles.map( ( role ) => `${ env( role ) }=auth-${ role }.json` ), 'npx playwright test rehearsals.spec.ts' ].join( ' ' );
+		const roleLogins = roles
+			.map( ( role ) => `<p class="rh-muted">Some rehearsals run as <b>${ esc( role ) }</b>, so save a session for a user with that role too:</p>${ cmd( `npx playwright open --save-storage=auth-${ role }.json ${ site }wp-login.php` ) }` )
+			.join( '' );
+		showModal(
+			`Run ${ picked.length } rehearsal${ picked.length === 1 ? '' : 's' } in Playwright`,
+			`<p>The selected rehearsals as one Playwright test file, to run from your computer or CI.</p>
+			<ol class="rh-steps">
+				<li><b>Get the tests.</b> <a class="button button-primary" href="${ esc( url ) }&amp;download=1">Download rehearsals.spec.ts</a>
+					<span class="rh-muted">or fetch them, for example in CI:</span>${ cmd( `curl -o rehearsals.spec.ts "${ url }"` ) }</li>
+				<li><b>Install Playwright</b>, once, in the same folder:${ cmd( 'npm i -D @playwright/test && npx playwright install chromium' ) }</li>
+				<li><b>Save a logged-in session</b>, once: log in as an administrator in the browser that opens, then close it.${ cmd( `npx playwright open --save-storage=auth.json ${ site }wp-login.php` ) }${ roleLogins }</li>
+				<li><b>Run them.</b>${ cmd( run ) }
+					<p class="rh-muted">Add <code>--headed</code> to watch them, <code>BASE_URL=https://another-site/</code> to test another site, and see the results with <code>npx playwright show-report</code>.</p></li>
+			</ol>
+			<p class="rh-muted">The link returns exactly these rehearsals while this site exists. Rehearsals that change the site change it in Playwright too.</p>`,
+			close
+		);
+	}
+
 	async function previewInstall() {
 		modalMessage( '#rh-modal-error', '' );
 		const box = modal.querySelector( '#rh-m-preview' );
@@ -698,6 +740,7 @@
 		};
 		if ( t.matches( '[data-close]' ) ) modal.close();
 		if ( t.matches( '[data-copy-share]' ) ) copy( modal.querySelector( '#rh-m-share' ).value, t );
+		if ( t.matches( '[data-copy-cmd]' ) ) copy( t.previousElementSibling.textContent, t );
 		const current = state.recipes.find( ( r ) => r.id === id );
 		if ( t.matches( '[data-copy-gh]' ) ) copy( recipeMarkdown( current ), t );
 		if ( t.matches( '[data-copy-raw]' ) ) copy( recipeJson( current ), t );
@@ -752,6 +795,7 @@
 	} );
 	document.getElementById( 'rh-add' ).addEventListener( 'click', () => openRecipe( null ) );
 	document.getElementById( 'rh-install' ).addEventListener( 'click', () => openInstall( '' ) );
+	document.getElementById( 'rh-playwright' ).addEventListener( 'click', openPlaywright );
 
 	let searchTimer;
 	document.getElementById( 'rh-f-search' ).addEventListener( 'input', ( e ) => {

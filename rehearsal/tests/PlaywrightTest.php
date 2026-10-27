@@ -55,35 +55,60 @@ class PlaywrightTest extends TestCase {
 		);
 	}
 
+
 	public function test_optional_steps_cannot_fail_the_test() {
-		$this->assertStringContainsString( "await optional( async () => {\n\t\tawait click(", $this->generate( array( array( 'click' => '#close', 'optional' => true ) ) ) );
+		$this->assertStringContainsString( "await optional( async () => {\n\t\t\tawait click(", $this->generate( array( array( 'click' => '#close', 'optional' => true ) ) ) );
 	}
 
 	public function test_no_page_measuring_without_budgets() {
 		$code = $this->generate( array( array( 'goto' => '/' ) ) );
 		$this->assertStringNotContainsString( 'measure', $code );
-		$this->assertStringNotContainsString( 'BUDGETS', $code );
+		$this->assertStringNotContainsString( 'trackLoads', $code );
 	}
 
 	public function test_measures_each_page_load_against_the_rehearsals_budgets() {
 		$code = $this->generate( array( array( 'goto' => '/' ), array( 'click' => 'a' ) ), array( 'budgets' => array( 'lcp' => 2500 ) ) );
-		$this->assertStringContainsString( 'const BUDGETS: Record< string, number > = {"lcp":2500};', $code );
+		$this->assertStringContainsString( 'const measure = await trackLoads( page, {"lcp":2500} );', $code );
 		$this->assertSame( 3, substr_count( $code, 'await measure();' ) );
 	}
 
 	public function test_a_role_reads_its_own_storage_state_first() {
-		$this->assertStringContainsString( 'storageState: process.env.STORAGE_STATE_EDITOR || process.env.STORAGE_STATE,', $this->generate( array( array( 'goto' => '/' ) ), array( 'role' => 'editor' ) ) );
+		$this->assertStringContainsString( 'test.use( { actionTimeout: 10000, storageState: process.env.STORAGE_STATE_EDITOR || process.env.STORAGE_STATE } );', $this->generate( array( array( 'goto' => '/' ) ), array( 'role' => 'editor' ) ) );
 	}
 
-	public function test_a_title_cannot_close_the_header_comment() {
+	public function test_a_bundle_shares_one_setup_and_keeps_each_rehearsals_settings() {
+		$payload = static fn( $title, $def ) => array(
+			'title'      => $title,
+			'id'         => str_repeat( 'b', 64 ),
+			'site'       => 'https://example.test/',
+			'definition' => $def,
+		);
+		$code    = Companion_Rehearsal_Playwright::to_playwright_bundle(
+			array(
+				$payload( 'Plain', array( 'steps' => array( array( 'goto' => '/' ) ) ) ),
+				$payload( 'As editor', array( 'role' => 'editor', 'timeout' => 20000, 'steps' => array( array( 'goto' => '/wp-admin/' ) ) ) ),
+				$payload( 'Budgeted', array( 'budgets' => array( 'weight' => 1000 ), 'steps' => array( array( 'goto' => '/' ) ) ) ),
+			),
+			'https://example.test/'
+		);
+
+		$this->assertSame( 1, substr_count( $code, "from '@playwright/test';" ) );
+		$this->assertSame( 1, substr_count( $code, 'async function trackLoads(' ) );
+		$this->assertSame( 3, substr_count( $code, 'test.describe( ' ) );
+		$this->assertSame( 1, substr_count( $code, 'process.env.STORAGE_STATE_EDITOR' ) );
+		$this->assertStringContainsString( "test.describe( \"As editor\", () => {\n\tconst expect = baseExpect.configure( { timeout: 20000 } );", $code );
+		$this->assertStringContainsString( 'trackLoads( page, {"weight":1000} )', $code );
+	}
+
+	public function test_a_title_stays_on_its_comment_line() {
 		$code = Companion_Rehearsal_Playwright::to_playwright(
 			array(
-				'title'      => 'Ends */ early',
+				'title'      => "Two\nlines",
 				'id'         => str_repeat( 'a', 64 ),
 				'site'       => 'https://example.test/',
 				'definition' => array( 'steps' => array( array( 'goto' => '/' ) ) ),
 			)
 		);
-		$this->assertStringContainsString( ' * Rehearsal: Ends * / early', $code );
+		$this->assertStringContainsString( '// Rehearsal: Two lines', $code );
 	}
 }

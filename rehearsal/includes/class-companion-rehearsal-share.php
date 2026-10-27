@@ -67,6 +67,9 @@ final class Companion_Rehearsal_Share {
 	 * Serve ?rehearsal=<id>.<key>: a page for people, or JSON with &format=json for CI and other sites.
 	 */
 	public static function serve_share() {
+		if ( ! empty( $_GET['rehearsal_bundle'] ) ) { // phpcs:ignore WordPress.Security.NonceVerification.Recommended
+			self::serve_bundle( sanitize_text_field( wp_unslash( $_GET['rehearsal_bundle'] ) ) ); // phpcs:ignore WordPress.Security.NonceVerification.Recommended
+		}
 		if ( empty( $_GET['rehearsal'] ) ) { // phpcs:ignore WordPress.Security.NonceVerification.Recommended
 			return;
 		}
@@ -92,6 +95,66 @@ final class Companion_Rehearsal_Share {
 			exit;
 		}
 		self::render_share_page( $payload );
+		exit;
+	}
+
+	/**
+	 * A link to several rehearsals as one Playwright file, for "Run in Playwright" and CI.
+	 *
+	 * @param int[] $ids Rehearsal IDs.
+	 * @return string
+	 */
+	public static function bundle_url( array $ids ) {
+		$ids = implode( '-', array_map( 'intval', $ids ) );
+		return add_query_arg( 'rehearsal_bundle', $ids . '.' . self::bundle_key( $ids ), home_url( '/' ) );
+	}
+
+	/**
+	 * The rehearsal IDs in a bundle token ("<id>-<id>.<key>"), or none when the key doesn't match the list.
+	 *
+	 * @param string $token Value of the ?rehearsal_bundle= query arg.
+	 * @return int[]
+	 */
+	public static function ids_from_bundle_token( $token ) {
+		list( $ids, $key ) = array_pad( explode( '.', (string) $token, 2 ), 2, '' );
+		if ( ! preg_match( '/^\d+(-\d+)*$/', $ids ) || ! hash_equals( self::bundle_key( $ids ), $key ) ) {
+			return array();
+		}
+		return array_map( 'intval', explode( '-', $ids ) );
+	}
+
+	/**
+	 * Key for a list of rehearsal IDs, so a bundle link opens exactly that list.
+	 *
+	 * @param string $ids IDs joined with "-".
+	 * @return string
+	 */
+	private static function bundle_key( $ids ) {
+		return substr( hash_hmac( 'sha256', 'rehearsal-bundle|' . $ids, wp_salt( 'auth' ) ), 0, 20 );
+	}
+
+	/**
+	 * Serve a bundle link as a Playwright file. &download=1 makes the browser save it.
+	 *
+	 * @param string $token Bundle token.
+	 */
+	private static function serve_bundle( $token ) {
+		$payloads = array();
+		foreach ( self::ids_from_bundle_token( $token ) as $id ) {
+			$post = get_post( $id );
+			if ( $post && Companion_Rehearsal::RECIPE === $post->post_type && 'publish' === $post->post_status && ! Companion_Rehearsal_Schema::validate( json_decode( $post->post_content, true ) ) ) {
+				$payloads[] = self::share_payload( $post );
+			}
+		}
+		nocache_headers();
+		if ( ! $payloads ) {
+			status_header( 404 );
+			wp_die( 'This link is not valid, or its rehearsals were deleted.', 'Rehearsals not found', array( 'response' => 404 ) );
+		}
+		header( 'Access-Control-Allow-Origin: *' );
+		header( 'Content-Type: text/plain; charset=utf-8' );
+		header( 'Content-Disposition: ' . ( empty( $_GET['download'] ) ? 'inline' : 'attachment' ) . '; filename="rehearsals.spec.ts"' ); // phpcs:ignore WordPress.Security.NonceVerification.Recommended
+		echo Companion_Rehearsal_Playwright::to_playwright_bundle( $payloads, home_url( '/' ) ); // phpcs:ignore WordPress.Security.EscapingOutput.OutputNotEscaped -- Plain-text source code.
 		exit;
 	}
 

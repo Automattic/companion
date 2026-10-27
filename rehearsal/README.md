@@ -133,13 +133,13 @@ searched by title or run number (`#233`).
 
 ## Sharing
 
-The rehearsal dialog has everything for sharing:
+The **Share** box in the rehearsal dialog has a link and three copies:
 
 - **Share link**: `https://<site>/?rehearsal=<id>.<key>`. Opened in a browser it shows the rehearsal
   and an **Install on your site** box. With `&format=json` it returns the rehearsal for scripts and CI.
   The key is unique to the rehearsal, so the link reveals nothing else.
-- **Copy for GitHub**: a summary with the last result and the JSON folded away, for a PR description.
-- **Copy rehearsal JSON**: the raw steps.
+- **Copy as GitHub**: a summary with the last result and the JSON folded away, for a PR description.
+- **Copy as JSON**: the raw steps.
 - **Copy as Playwright test**: a standalone `.spec.ts` (see below).
 
 ![The rehearsal dialog](screenshots/dialog.png)
@@ -154,19 +154,26 @@ Installing the same link again updates that copy.
 
 Share links stop working when the site that holds the rehearsal expires.
 
-## Running a rehearsal in Playwright
+## Running rehearsals in Playwright
 
-Every rehearsal converts to a Playwright test: **Copy as Playwright test**, or
-`<share link>&format=playwright`. It needs a logged-in storage state for the site:
+Select rehearsals and press **Run in Playwright**. It exports them as one `rehearsals.spec.ts`, one
+`describe` block each with its own timeout, role and budgets, and lists the commands to run it:
 
-```bash
-curl "https://<site>/?rehearsal=<id>.<key>&format=playwright" > tests/discussion.spec.ts
-STORAGE_STATE=auth.json BASE_URL=https://<site>/ npx playwright test
-```
+1. **Get the tests**: the download button, or `curl` the signed link it shows (works in CI too).
+2. **Install Playwright**, once: `npm i -D @playwright/test && npx playwright install chromium`.
+3. **Save a logged-in session**, once: `npx playwright open --save-storage=auth.json https://<site>/wp-login.php`,
+   log in as an administrator and close the browser. For rehearsals with a `role`, save one per role
+   for a user with that role (`auth-editor.json`); the `rehearsal-<role>` test users have random passwords.
+4. **Run**: `STORAGE_STATE=auth.json npx playwright test rehearsals.spec.ts`, plus
+   `STORAGE_STATE_EDITOR=auth-editor.json` and so on for roles. `BASE_URL` tests another site.
 
-A rehearsal with a `role` reads `STORAGE_STATE_<ROLE>` (for example `STORAGE_STATE_EDITOR`) first. In
-Playwright, screenshots work, every page load starts with an empty cache, and failed network requests
-are noted in the report instead of counting as console errors.
+![Run in Playwright](screenshots/playwright-dialog.png)
+
+A single rehearsal is also available as **Copy as Playwright test**, or `<share link>&format=playwright`.
+The bundle link is signed like a share link, so it returns exactly the rehearsals it was made for.
+
+In Playwright, screenshots work, every page load starts with an empty cache, and failed network
+requests are noted in the report instead of counting as console errors.
 
 ## How it works, and its limits
 

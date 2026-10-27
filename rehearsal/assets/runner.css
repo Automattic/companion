@@ -36,10 +36,11 @@
 .rh-m-info { display: grid; grid-template-columns: max-content 1fr; gap: 4px 16px; margin: 0; font-size: 13px; }
 .rh-m-info dt { color: #646970; }
 .rh-m-info dd { margin: 0; overflow-wrap: anywhere; }
-.rh-share { margin-block-start: 8px; padding: 10px 12px; background: #f6f7f7; border: 1px solid #dcdcde; }
+.rh-share { display: grid; gap: 6px; margin-block-start: 8px; padding: 10px 12px; background: #f6f7f7; border: 1px solid #dcdcde; border-radius: 4px; }
 .rh-share label { font-weight: 600; }
-.rh-share-row { display: flex; gap: 8px; margin-block: 4px; }
-.rh-share-row input { flex: 1; font: 12px Menlo, Consolas, monospace; }
+.rh-share-link { display: flex; gap: 8px; }
+.rh-share-link input { flex: 1; min-inline-size: 0; font: 12px Menlo, Consolas, monospace; color: #50575e; }
+.rh-share-as { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px; font-size: 13px; color: #50575e; }
 .rh-share .rh-muted { margin: 0; }
 .rh-help { font-size: 13px; color: #3c434a; }
 .rh-help summary { cursor: pointer; color: #2271b1; }
@@ -75,7 +76,6 @@
 .rh-run-filters { display: flex; flex-wrap: wrap; gap: 8px 10px; align-items: center; margin-block-end: 10px; }
 .rh-run-filters input[type=search] { min-inline-size: 240px; }
 .rh-run-filters select { max-inline-size: 280px; }
-.rh-share-row + .rh-share-row { margin-block-start: 10px; align-items: center; flex-wrap: wrap; }
 .rh-metrics { display: block; margin-block: 2px 4px; padding: 3px 8px; border-inline-start: 3px solid #c3c4c7; background: #f6f7f7; font-size: 11.5px; line-height: 1.6; color: #3c434a; }
 .rh-metrics.warn { border-inline-start-color: #dba617; background: #fcf9e8; }
 .rh-metrics.bad { border-inline-start-color: #d63638; background: #fcf0f1; }
@@ -85,3 +85,10 @@
 .rh-metric small { font-weight: 400; }
 .rh-recipes tr.rh-blocked > th, .rh-recipes tr.rh-blocked > td { opacity: 0.6; }
 .rh-recipes tr.rh-blocked .rh-pill.fail { opacity: 1; }
+.rh-steps { margin: 4px 0 0; padding-inline-start: 20px; display: grid; gap: 12px; }
+.rh-steps .button-primary { margin-inline: 6px; vertical-align: baseline; }
+.rh-cmd { display: flex; align-items: center; gap: 8px; margin-block-start: 6px; padding: 6px 6px 6px 10px; background: #1d2327; border-radius: 4px; }
+.rh-cmd code { flex: 1; min-inline-size: 0; background: none; padding: 0; color: #f0f0f1; font: 12px/1.5 Menlo, Consolas, monospace; overflow-wrap: anywhere; }
+.rh-steps p { margin: 6px 0 0; }
+.rh-cmd .button { color: #f0f0f1; background: transparent; border-color: #8c8f94; }
+.rh-cmd .button:hover, .rh-cmd .button:focus { color: #fff; background: #3c434a; border-color: #c3c4c7; }

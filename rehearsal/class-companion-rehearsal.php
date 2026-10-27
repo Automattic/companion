@@ -17,7 +17,7 @@ unset( $companion_rehearsal_part );
  * Names shared by every part of Rehearsal, and the hooks that connect them.
  */
 final class Companion_Rehearsal {
-	const VERSION = '0.17.0';
+	const VERSION = '0.18.1';
 	const RECIPE  = 'rehearsal';
 	const RUN     = 'rehearsal_run';
 	const SLUG    = 'rehearsal';

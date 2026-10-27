@@ -46,4 +46,14 @@ class ShareTest extends TestCase {
 			'not a token'              => array( static fn( $t ) => 'hello' ),
 		);
 	}
+
+	public function test_a_bundle_link_opens_exactly_its_rehearsals() {
+		parse_str( (string) parse_url( Companion_Rehearsal_Share::bundle_url( array( 3, 7, 12 ) ), PHP_URL_QUERY ), $query );
+		$token = $query['rehearsal_bundle'];
+
+		$this->assertSame( array( 3, 7, 12 ), Companion_Rehearsal_Share::ids_from_bundle_token( $token ) );
+		$this->assertSame( array(), Companion_Rehearsal_Share::ids_from_bundle_token( '3-7-12-13' . substr( $token, strpos( $token, '.' ) ) ) );
+		$this->assertSame( array(), Companion_Rehearsal_Share::ids_from_bundle_token( '3-7' . substr( $token, strpos( $token, '.' ) ) ) );
+		$this->assertSame( array(), Companion_Rehearsal_Share::ids_from_bundle_token( '3-7-12.' ) );
+	}
 }
