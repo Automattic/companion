@@ -317,7 +317,10 @@
 						<div class="rh-meta">${ meta.join( ' · ' ) }</div>
 					</td>
 					<td><span class="rh-pill ${ cls }">${ label }</span>${ r.recipe.budgets ? slowPill( r.live || r.lastRun ) : '' }${ needsPill( r ) }${ newerPill( r ) }</td>
-					<td><button type="button" class="button-link" data-toggle="${ i }" aria-expanded="${ r.open }">${
+					<td class="rh-row-actions"><button type="button" class="button button-small" data-run-row="${ i }" ${
+						state.running || blocked( r ) ? 'disabled' : ''
+					} aria-label="Run ${ esc( r.title ) }">Run</button>
+					<button type="button" class="button-link" data-toggle="${ i }" aria-expanded="${ r.open }">${
 						r.open ? 'Hide log' : 'Log'
 					}</button></td>
 				</tr>
@@ -815,6 +818,8 @@
 		if ( runsFor && ! modal.contains( runsFor ) ) showRunsFor( { recipe: runsFor.dataset.runsFor } );
 		const byUser = e.target.closest( '[data-filter-user]' );
 		if ( byUser ) showRunsFor( { user: byUser.dataset.filterUser } );
+		const runRow = e.target.closest( '[data-run-row]' );
+		if ( runRow && ! runRow.disabled ) runRecipes( [ state.recipes[ +runRow.dataset.runRow ] ] );
 		const opener = e.target.closest( '[data-open]' );
 		if ( opener ) openRecipe( state.recipes[ +opener.dataset.open ] );
 		const t = e.target.closest( '[data-toggle]' );

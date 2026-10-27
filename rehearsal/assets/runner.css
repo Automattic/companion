@@ -92,3 +92,5 @@
 .rh-steps p { margin: 6px 0 0; }
 .rh-cmd .button { color: #f0f0f1; background: transparent; border-color: #8c8f94; }
 .rh-cmd .button:hover, .rh-cmd .button:focus { color: #fff; background: #3c434a; border-color: #c3c4c7; }
+.rh-row-actions { white-space: nowrap; }
+.rh-row-actions .button-small { margin-inline-end: 8px; }
