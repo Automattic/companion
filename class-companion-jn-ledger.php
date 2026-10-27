@@ -210,7 +210,7 @@ class Companion_JN_Ledger {
 					<strong><?php echo esc_html( $label ); ?></strong>
 				<?php endif; ?>
 				<?php if ( '' !== $notes ) : ?>
-					<span><?php echo esc_html( wp_trim_words( $notes, 30 ) ); ?></span>
+					<span><?php echo esc_html( self::excerpt( $notes, 30 ) ); ?></span>
 				<?php endif; ?>
 			</p>
 			<?php
@@ -360,8 +360,8 @@ class Companion_JN_Ledger {
 
 		// phpcs:disable WordPress.Security.NonceVerification.Missing -- Checked above.
 		$fields = array(
-			'label' => isset( $_POST['label'] ) ? sanitize_text_field( wp_unslash( $_POST['label'] ) ) : '',
-			'notes' => isset( $_POST['notes'] ) ? sanitize_textarea_field( wp_unslash( $_POST['notes'] ) ) : '',
+			'label' => isset( $_POST['label'] ) ? self::plain_text( wp_unslash( $_POST['label'] ), false ) : '', // phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized -- Cleaned by plain_text().
+			'notes' => isset( $_POST['notes'] ) ? self::plain_text( wp_unslash( $_POST['notes'] ), true ) : '', // phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized -- Cleaned by plain_text().
 		);
 		$pr_url = isset( $_POST['pr_url'] ) ? sanitize_text_field( wp_unslash( $_POST['pr_url'] ) ) : '';
 		// phpcs:enable WordPress.Security.NonceVerification.Missing
@@ -579,6 +579,42 @@ class Companion_JN_Ledger {
 			return array();
 		}
 		return array_values( array_filter( array_map( 'strval', array_filter( $record['linear_issues'], 'is_scalar' ) ), 'strlen' ) );
+	}
+
+	/**
+	 * Cleans free text from the form the same way Mission Control does, without stripping
+	 * anything that looks like markup.
+	 *
+	 * Labels and notes are plain text and are escaped wherever they're shown, so "fix the
+	 * <Card> layout" or a URL with %2F in it must survive a save. sanitize_text_field() would
+	 * strip both. Only invalid UTF-8 is dropped.
+	 *
+	 * @param string $value     Raw value, already unslashed.
+	 * @param bool   $multiline Keep line breaks (notes) or fold them into spaces (label).
+	 * @return string
+	 */
+	private static function plain_text( $value, $multiline ) {
+		$value = str_replace( array( "\r\n", "\r" ), "\n", wp_check_invalid_utf8( (string) $value ) );
+		if ( ! $multiline ) {
+			$value = preg_replace( '/[\n\t]+/', ' ', $value );
+		}
+		return trim( $value );
+	}
+
+	/**
+	 * The first $words words of plain text. Unlike wp_trim_words(), this keeps anything that
+	 * looks like markup, since the text is escaped when it's shown.
+	 *
+	 * @param string $text  Plain text.
+	 * @param int    $words Word limit.
+	 * @return string
+	 */
+	private static function excerpt( $text, $words ) {
+		$all = preg_split( '/\s+/', trim( $text ), -1, PREG_SPLIT_NO_EMPTY );
+		if ( count( $all ) <= $words ) {
+			return implode( ' ', $all );
+		}
+		return implode( ' ', array_slice( $all, 0, $words ) ) . "\u{2026}";
 	}
 
 	/**
