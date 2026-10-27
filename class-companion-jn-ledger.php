@@ -27,8 +27,8 @@ class Companion_JN_Ledger {
 	const TIMEOUT = 5;
 
 	/**
-	 * Timeout, in seconds, for running-state reports. These go out at shutdown, so they can
-	 * hold up the end of a request or a WP-CLI command and must stay short.
+	 * Timeout, in seconds, for running-state reports. These go out at shutdown, after the
+	 * response on PHP-FPM, but they still hold up the end of a WP-CLI command.
 	 */
 	const REPORT_TIMEOUT = 3;
 
@@ -43,10 +43,16 @@ class Companion_JN_Ledger {
 	const RECORD_CACHE_TTL = 300;
 
 	/**
-	 * Site transient holding a hash of the last report sent, so an unchanged report is not
-	 * sent again within REPORT_DEDUPE_TTL.
+	 * Site transient holding a hash of the last report wpcom answered, so an unchanged report
+	 * is not sent again within REPORT_DEDUPE_TTL.
 	 */
 	const REPORT_HASH_KEY = 'companion_jn_ledger_report';
+
+	/**
+	 * Site transient set for a minute when Jetpack Beta's plugin list can't be read, so a
+	 * failing download isn't retried on every trigger.
+	 */
+	const REPORT_SKIP_KEY = 'companion_jn_ledger_report_skip';
 
 	/**
 	 * How long, in seconds, an unchanged report is not sent again.
@@ -170,7 +176,9 @@ class Companion_JN_Ledger {
 	 * The ledger record, from a short cache unless $fresh.
 	 *
 	 * The absence of a record is cached too, so a site whose wpcom has no ledger endpoints
-	 * makes one request every few minutes rather than one per admin page.
+	 * makes one request every few minutes rather than one per admin page. Only a 403 or 404
+	 * means there is no ledger; after a timeout, rate limit or server error, a record already
+	 * cached keeps being shown, and otherwise the read is retried in a minute.
 	 *
 	 * @param bool $fresh Skip the cache.
 	 * @return array|null The record, or null when there isn't one or it can't be read.
@@ -180,21 +188,28 @@ class Companion_JN_Ledger {
 			return null;
 		}
 
-		if ( ! $fresh ) {
-			$cached = get_site_transient( self::RECORD_CACHE_KEY );
-			if ( is_array( $cached ) && array_key_exists( 'record', $cached ) ) {
-				return $cached['record'];
-			}
+		$cached = get_site_transient( self::RECORD_CACHE_KEY );
+		$cached = is_array( $cached ) && array_key_exists( 'record', $cached ) ? $cached : null;
+		if ( ! $fresh && null !== $cached ) {
+			return $cached['record'];
 		}
 
-		$record   = null;
 		$response = self::request();
-		if ( ! is_wp_error( $response ) && 200 === $response['code'] && is_array( $response['body'] ) ) {
-			$record = $response['body'];
+		$code     = is_wp_error( $response ) ? 0 : $response['code'];
+		if ( 200 === $code && is_array( $response['body'] ) ) {
+			set_site_transient( self::RECORD_CACHE_KEY, array( 'record' => $response['body'] ), self::RECORD_CACHE_TTL );
+			return $response['body'];
 		}
-		set_site_transient( self::RECORD_CACHE_KEY, array( 'record' => $record ), self::RECORD_CACHE_TTL );
+		if ( 403 === $code || 404 === $code ) {
+			set_site_transient( self::RECORD_CACHE_KEY, array( 'record' => null ), self::RECORD_CACHE_TTL );
+			return null;
+		}
 
-		return $record;
+		if ( null !== $cached && null !== $cached['record'] ) {
+			return $cached['record'];
+		}
+		set_site_transient( self::RECORD_CACHE_KEY, array( 'record' => null ), MINUTE_IN_SECONDS );
+		return null;
 	}
 
 	/**
@@ -447,16 +462,31 @@ class Companion_JN_Ledger {
 			return;
 		}
 		self::$report_queued = true;
-		add_action( 'shutdown', array( __CLASS__, 'send_report' ) );
+		// Last, so nothing hooked to shutdown after it still needs to send output.
+		add_action( 'shutdown', array( __CLASS__, 'send_report' ), PHP_INT_MAX );
 	}
 
 	/**
-	 * Reports the running Jetpack Beta builds, unless the same report went out in the last
-	 * five minutes. Errors are ignored: the next trigger, or the hourly event, tries again.
+	 * Reports the running Jetpack Beta builds, unless wpcom answered the same report in the
+	 * last five minutes. Errors are otherwise ignored: the next trigger, or the hourly event,
+	 * tries again.
 	 */
 	public static function send_report() {
+		/*
+		 * On PHP-FPM, hand the response to the browser first, so neither Jetpack Beta's plugin
+		 * list nor the report can hold up a page or the login redirect. 'blocking' => false
+		 * wouldn't help: WordPress's curl transport still waits out the timeout.
+		 */
+		if ( ! ( defined( 'WP_CLI' ) && WP_CLI ) && function_exists( 'fastcgi_finish_request' ) ) {
+			fastcgi_finish_request();
+		}
+
+		if ( get_site_transient( self::REPORT_SKIP_KEY ) ) {
+			return;
+		}
 		$installed = self::get_installed();
 		if ( null === $installed ) {
+			set_site_transient( self::REPORT_SKIP_KEY, 1, MINUTE_IN_SECONDS );
 			return;
 		}
 
@@ -465,16 +495,18 @@ class Companion_JN_Ledger {
 		if ( get_site_transient( self::REPORT_HASH_KEY ) === $hash ) {
 			return;
 		}
-		set_site_transient( self::REPORT_HASH_KEY, $hash, self::REPORT_DEDUPE_TTL );
 
-		self::request(
+		$response = self::request(
 			'/report',
 			array( 'installed' => $json ),
-			array(
-				'blocking' => false,
-				'timeout'  => self::REPORT_TIMEOUT,
-			)
+			array( 'timeout' => self::REPORT_TIMEOUT )
 		);
+
+		// Stored, or refused for good (403, 404). A timeout, rate limit or server error is retried.
+		$code = is_wp_error( $response ) ? 0 : $response['code'];
+		if ( ( $code >= 200 && $code < 300 ) || 403 === $code || 404 === $code ) {
+			set_site_transient( self::REPORT_HASH_KEY, $hash, self::REPORT_DEDUPE_TTL );
+		}
 	}
 
 	/**
