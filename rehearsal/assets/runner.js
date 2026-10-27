@@ -336,7 +336,7 @@
 					<td class="check-column"><input type="checkbox" data-all ${ all ? 'checked' : '' } ${
 						state.running ? 'disabled' : ''
 					} aria-label="Select all rehearsals"></td>
-					<th>Rehearsal</th><th>Result</th><th></th>
+					<th>Rehearsal</th><th>Last result</th><th></th>
 				</tr></thead>
 				<tbody>${ rows || '<tr><td></td><td colspan="3" class="rh-muted">No rehearsals yet. Add one, or install one from a link.</td></tr>' }</tbody>
 			</table>`;
