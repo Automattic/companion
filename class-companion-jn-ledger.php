@@ -288,7 +288,7 @@ class Companion_JN_Ledger {
 		<div class="wrap">
 			<h1><?php echo esc_html__( "What's this site for?", 'companion' ); ?></h1>
 			<?php if ( is_array( $notice ) && ! empty( $notice['message'] ) ) : ?>
-				<div class="notice notice-<?php echo 'success' === $notice['type'] ? 'success' : 'error'; ?>">
+				<div class="notice notice-<?php echo in_array( $notice['type'], array( 'success', 'info' ), true ) ? esc_attr( $notice['type'] ) : 'error'; ?>">
 					<p><?php echo esc_html( $notice['message'] ); ?></p>
 				</div>
 			<?php endif; ?>
@@ -310,14 +310,16 @@ class Companion_JN_Ledger {
 			<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>">
 				<input type="hidden" name="action" value="<?php echo esc_attr( self::UPDATE_ACTION ); ?>" />
 				<?php wp_nonce_field( self::UPDATE_ACTION ); ?>
+				<input type="hidden" name="orig_label" value="<?php echo esc_attr( self::string_field( $record, 'label' ) ); ?>" />
+				<input type="hidden" name="orig_notes" value="<?php echo esc_attr( self::string_field( $record, 'notes' ) ); ?>" />
 				<table class="form-table" role="presentation">
 					<tr>
 						<th scope="row"><label for="companion_jn_ledger_label"><?php echo esc_html__( 'Label', 'companion' ); ?></label></th>
-						<td><input type="text" id="companion_jn_ledger_label" name="label" class="regular-text" value="<?php echo esc_attr( $label ); ?>" /></td>
+						<td><input type="text" id="companion_jn_ledger_label" name="label" class="regular-text" maxlength="200" value="<?php echo esc_attr( $label ); ?>" /></td>
 					</tr>
 					<tr>
 						<th scope="row"><label for="companion_jn_ledger_notes"><?php echo esc_html__( 'Notes', 'companion' ); ?></label></th>
-						<td><textarea id="companion_jn_ledger_notes" name="notes" class="large-text" rows="5"><?php echo esc_textarea( $notes ); ?></textarea></td>
+						<td><textarea id="companion_jn_ledger_notes" name="notes" class="large-text" rows="5" maxlength="2000"><?php echo esc_textarea( $notes ); ?></textarea></td>
 					</tr>
 					<tr>
 						<th scope="row"><label for="companion_jn_ledger_pr_url"><?php echo esc_html__( 'Add a pull request', 'companion' ); ?></label></th>
@@ -358,19 +360,33 @@ class Companion_JN_Ledger {
 		}
 		check_admin_referer( self::UPDATE_ACTION );
 
-		// phpcs:disable WordPress.Security.NonceVerification.Missing -- Checked above.
-		$fields = array(
-			'label' => isset( $_POST['label'] ) ? self::plain_text( wp_unslash( $_POST['label'] ), false ) : '', // phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized -- Cleaned by plain_text().
-			'notes' => isset( $_POST['notes'] ) ? self::plain_text( wp_unslash( $_POST['notes'] ), true ) : '', // phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized -- Cleaned by plain_text().
-		);
+		/*
+		 * Send only the fields that changed from what the form showed. Sending a field replaces
+		 * it on wpcom, so sending unchanged ones would overwrite anything Mission Control or an
+		 * agent wrote after the page loaded.
+		 */
+		// phpcs:disable WordPress.Security.NonceVerification.Missing, WordPress.Security.ValidatedSanitizedInput.InputNotSanitized -- Nonce checked above; label and notes are cleaned by plain_text().
+		$typed  = array();
+		$fields = array();
+		foreach ( array( 'label' => false, 'notes' => true ) as $field => $multiline ) {
+			$typed[ $field ] = self::plain_text( isset( $_POST[ $field ] ) ? wp_unslash( $_POST[ $field ] ) : '', $multiline );
+			if ( ! isset( $_POST[ 'orig_' . $field ] ) || self::plain_text( wp_unslash( $_POST[ 'orig_' . $field ] ), $multiline ) !== $typed[ $field ] ) {
+				$fields[ $field ] = $typed[ $field ];
+			}
+		}
 		$pr_url = isset( $_POST['pr_url'] ) ? sanitize_text_field( wp_unslash( $_POST['pr_url'] ) ) : '';
-		// phpcs:enable WordPress.Security.NonceVerification.Missing
+		// phpcs:enable WordPress.Security.NonceVerification.Missing, WordPress.Security.ValidatedSanitizedInput.InputNotSanitized
 		if ( '' !== $pr_url ) {
 			$fields['pr_url'] = $pr_url;
 		}
 
-		$response = self::request( '/update', $fields );
-		if ( ! is_wp_error( $response ) && 200 === $response['code'] ) {
+		$response = $fields ? self::request( '/update', $fields ) : null;
+		if ( null === $response ) {
+			$notice = array(
+				'type'    => 'info',
+				'message' => __( 'Nothing changed, so nothing was saved.', 'companion' ),
+			);
+		} elseif ( ! is_wp_error( $response ) && 200 === $response['code'] ) {
 			delete_site_transient( self::RECORD_CACHE_KEY );
 			$notice = array(
 				'type'    => 'success',
@@ -388,8 +404,8 @@ class Companion_JN_Ledger {
 				'type'    => 'error',
 				'message' => $message,
 				'values'  => array(
-					'label'  => $fields['label'],
-					'notes'  => $fields['notes'],
+					'label'  => $typed['label'],
+					'notes'  => $typed['notes'],
 					'pr_url' => $pr_url,
 				),
 			);
@@ -582,21 +598,23 @@ class Companion_JN_Ledger {
 	}
 
 	/**
-	 * Cleans free text from the form the same way Mission Control does, without stripping
+	 * Cleans free text from the form the same way the ledger on wpcom does, without stripping
 	 * anything that looks like markup.
 	 *
 	 * Labels and notes are plain text and are escaped wherever they're shown, so "fix the
 	 * <Card> layout" or a URL with %2F in it must survive a save. sanitize_text_field() would
-	 * strip both. Only invalid UTF-8 is dropped.
+	 * strip both. Invalid UTF-8 is scrubbed rather than emptying the whole value, since wpcom
+	 * clears a field sent as '', and control characters other than newline and tab are dropped.
 	 *
 	 * @param string $value     Raw value, already unslashed.
 	 * @param bool   $multiline Keep line breaks (notes) or fold them into spaces (label).
 	 * @return string
 	 */
 	private static function plain_text( $value, $multiline ) {
-		$value = str_replace( array( "\r\n", "\r" ), "\n", wp_check_invalid_utf8( (string) $value ) );
+		$value = str_replace( array( "\r\n", "\r" ), "\n", wp_check_invalid_utf8( (string) $value, true ) );
+		$value = preg_replace( '/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/', '', $value );
 		if ( ! $multiline ) {
-			$value = preg_replace( '/[\n\t]+/', ' ', $value );
+			$value = preg_replace( '/\s*\n\s*/', ' ', $value );
 		}
 		return trim( $value );
 	}
