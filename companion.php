@@ -32,6 +32,10 @@ if ( ! defined( 'IS_ATOMIC' ) || ( IS_ATOMIC && ( defined( 'IS_ATOMIC_JN' ) && I
 	add_action( 'after_setup_theme', 'companion_after_setup_theme' );
 	add_action( 'admin_notices', 'companion_admin_notices' );
 	add_action( 'pre_current_active_plugins', 'companion_hide_plugin' );
+
+	// Rehearsal: shareable step-by-step checks under Tools → Rehearsal. See rehearsal/README.md.
+	require_once __DIR__ . '/rehearsal/class-companion-rehearsal.php';
+	Companion_Rehearsal::init();
 }
 
 // Installed on WP.cloud Jurassic.Ninja client.
