@@ -38,10 +38,20 @@ class Companion_JN_Ledger {
 	const RECORD_CACHE_KEY = 'companion_jn_ledger';
 
 	/**
+	 * How long, in seconds, the record (or its absence) is cached.
+	 */
+	const RECORD_CACHE_TTL = 300;
+
+	/**
 	 * Site transient holding a hash of the last report sent, so an unchanged report is not
 	 * sent again within REPORT_DEDUPE_TTL.
 	 */
 	const REPORT_HASH_KEY = 'companion_jn_ledger_report';
+
+	/**
+	 * How long, in seconds, an unchanged report is not sent again.
+	 */
+	const REPORT_DEDUPE_TTL = 300;
 
 	/**
 	 * WP-Cron hook for the hourly report.
@@ -182,7 +192,7 @@ class Companion_JN_Ledger {
 		if ( ! is_wp_error( $response ) && 200 === $response['code'] && is_array( $response['body'] ) ) {
 			$record = $response['body'];
 		}
-		set_site_transient( self::RECORD_CACHE_KEY, array( 'record' => $record ), 5 * MINUTE_IN_SECONDS );
+		set_site_transient( self::RECORD_CACHE_KEY, array( 'record' => $record ), self::RECORD_CACHE_TTL );
 
 		return $record;
 	}
@@ -207,10 +217,10 @@ class Companion_JN_Ledger {
 			?>
 			<p class="jn_ledger_about">
 				<?php if ( '' !== $label ) : ?>
-					<strong><?php echo esc_html( $label ); ?></strong>
+					<strong><?php echo self::esc_text( $label ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Escaped by esc_text(). ?></strong>
 				<?php endif; ?>
 				<?php if ( '' !== $notes ) : ?>
-					<span><?php echo esc_html( self::excerpt( $notes, 30 ) ); ?></span>
+					<span><?php echo self::esc_text( self::excerpt( $notes, 30 ) ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Escaped by esc_text(). ?></span>
 				<?php endif; ?>
 			</p>
 			<?php
@@ -310,12 +320,12 @@ class Companion_JN_Ledger {
 			<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>">
 				<input type="hidden" name="action" value="<?php echo esc_attr( self::UPDATE_ACTION ); ?>" />
 				<?php wp_nonce_field( self::UPDATE_ACTION ); ?>
-				<input type="hidden" name="orig_label" value="<?php echo esc_attr( self::string_field( $record, 'label' ) ); ?>" />
-				<input type="hidden" name="orig_notes" value="<?php echo esc_attr( self::string_field( $record, 'notes' ) ); ?>" />
+				<input type="hidden" name="orig_label" value="<?php echo self::esc_text( self::string_field( $record, 'label' ) ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Escaped by esc_text(). ?>" />
+				<input type="hidden" name="orig_notes" value="<?php echo self::esc_text( self::string_field( $record, 'notes' ) ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Escaped by esc_text(). ?>" />
 				<table class="form-table" role="presentation">
 					<tr>
 						<th scope="row"><label for="companion_jn_ledger_label"><?php echo esc_html__( 'Label', 'companion' ); ?></label></th>
-						<td><input type="text" id="companion_jn_ledger_label" name="label" class="regular-text" maxlength="200" value="<?php echo esc_attr( $label ); ?>" /></td>
+						<td><input type="text" id="companion_jn_ledger_label" name="label" class="regular-text" maxlength="200" value="<?php echo self::esc_text( $label ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Escaped by esc_text(). ?>" /></td>
 					</tr>
 					<tr>
 						<th scope="row"><label for="companion_jn_ledger_notes"><?php echo esc_html__( 'Notes', 'companion' ); ?></label></th>
@@ -403,11 +413,8 @@ class Companion_JN_Ledger {
 			$notice = array(
 				'type'    => 'error',
 				'message' => $message,
-				'values'  => array(
-					'label'  => $typed['label'],
-					'notes'  => $typed['notes'],
-					'pr_url' => $pr_url,
-				),
+				// Only what was changed, so fields the user didn't touch show what is stored now.
+				'values'  => array_merge( array_intersect_key( $typed, $fields ), array( 'pr_url' => $pr_url ) ),
 			);
 		}
 
@@ -458,7 +465,7 @@ class Companion_JN_Ledger {
 		if ( get_site_transient( self::REPORT_HASH_KEY ) === $hash ) {
 			return;
 		}
-		set_site_transient( self::REPORT_HASH_KEY, $hash, 5 * MINUTE_IN_SECONDS );
+		set_site_transient( self::REPORT_HASH_KEY, $hash, self::REPORT_DEDUPE_TTL );
 
 		self::request(
 			'/report',
@@ -504,7 +511,7 @@ class Companion_JN_Ledger {
 				}
 				$plugins[] = array_merge( array( 'plugin' => (string) $slug ), $info );
 			}
-		} catch ( Exception $e ) {
+		} catch ( Throwable $e ) {
 			return null;
 		}
 
@@ -617,6 +624,20 @@ class Companion_JN_Ledger {
 			$value = preg_replace( '/\s*\n\s*/', ' ', $value );
 		}
 		return trim( $value );
+	}
+
+	/**
+	 * Escapes plain text for HTML text or an attribute, entity-like text included.
+	 *
+	 * esc_html() and esc_attr() leave existing entities alone, so a label that reads "&amp;"
+	 * would show, and come back from the form, as "&". Labels and notes are plain text, so
+	 * every character is encoded.
+	 *
+	 * @param string $text Plain text.
+	 * @return string
+	 */
+	private static function esc_text( $text ) {
+		return htmlspecialchars( (string) $text, ENT_QUOTES, 'UTF-8' );
 	}
 
 	/**
