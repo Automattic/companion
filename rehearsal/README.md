@@ -175,3 +175,29 @@ are noted in the report instead of counting as console errors.
   screenshots, open menus that only use CSS `:hover`, or type characters with `press` (use `fill`).
   Use the Playwright test for those.
 - Browsers slow down timers in background tabs; keep the tab visible while a run is going.
+
+## Development
+
+`class-companion-rehearsal.php` holds the shared names and hooks; each part lives in `includes/`:
+
+| Class | Does |
+| --- | --- |
+| `Companion_Rehearsal_Schema` | The step vocabulary, validation, and the rehearsal ID |
+| `Companion_Rehearsal_Store` | Rehearsal posts: registering, saving, shaping them for the runner |
+| `Companion_Rehearsal_Runs` | Saved runs: cleaning what the runner sends, storing, searching |
+| `Companion_Rehearsal_Requirements` | Plugins, theme and role a rehearsal needs |
+| `Companion_Rehearsal_Roles` | Running as a role's test user |
+| `Companion_Rehearsal_Share` | Share links, the share page, JSON and Playwright output |
+| `Companion_Rehearsal_Playwright` | Rehearsal → Playwright test |
+| `Companion_Rehearsal_Rest` | REST routes |
+| `Companion_Rehearsal_Admin` | The screen, its assets, the in-frame recorder, the build line |
+| `Companion_Rehearsal_Examples` | The example rehearsals |
+
+The decisions worth testing are pure functions that take what they need as arguments, such as
+`Schema::validate()`, `Requirements::find_missing()`, `Roles::is_from_frame()`,
+`Share::id_from_token()` and `Runs::clean_log()`. Their tests run without WordPress:
+
+```bash
+composer install
+composer test
+```
