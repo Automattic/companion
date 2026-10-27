@@ -61,6 +61,9 @@ final class Companion_Rehearsal_Schema {
 				}
 			}
 		}
+		if ( isset( $recipe['format'] ) && ( ! is_int( $recipe['format'] ) || $recipe['format'] < 1 ) ) {
+			return '"format" must be a whole number from 1 up.';
+		}
 		if ( isset( $recipe['needs'] ) && 'playwright' !== $recipe['needs'] ) {
 			return '"needs" can only be "playwright".';
 		}
@@ -96,12 +99,56 @@ final class Companion_Rehearsal_Schema {
 	}
 
 	/**
-	 * Recipe ID.
+	 * Recipe ID. It leaves "format" out, so stamping a format on an existing rehearsal keeps its results.
 	 *
 	 * @param string $content Canonical recipe JSON.
 	 * @return string
 	 */
 	public static function hash( $content ) {
+		$recipe = json_decode( $content, true );
+		if ( is_array( $recipe ) && array_key_exists( 'format', $recipe ) ) {
+			unset( $recipe['format'] );
+			$content = self::canonical( $recipe );
+		}
 		return hash( 'sha256', $content );
+	}
+
+	/**
+	 * The format a rehearsal was written in; rehearsals from before formats existed are format 1.
+	 *
+	 * @param array $recipe Decoded rehearsal.
+	 * @return int
+	 */
+	public static function format_of( array $recipe ) {
+		return isset( $recipe['format'] ) && is_int( $recipe['format'] ) ? $recipe['format'] : 1;
+	}
+
+	/**
+	 * Whether a rehearsal was written for a newer Rehearsal than this one, so some steps may not work.
+	 *
+	 * @param array $recipe Decoded rehearsal.
+	 * @return bool
+	 */
+	public static function is_newer( array $recipe ) {
+		return self::format_of( $recipe ) > Companion_Rehearsal::FORMAT;
+	}
+
+	/**
+	 * Why a shared rehearsal can't be used here: a newer format explains unknown steps better than the raw error.
+	 *
+	 * @param array  $recipe Decoded rehearsal.
+	 * @param string $error  What validate() said.
+	 * @return string
+	 */
+	public static function install_error( array $recipe, $error ) {
+		if ( self::is_newer( $recipe ) ) {
+			return sprintf(
+				'This rehearsal was made with a newer version of Rehearsal (format %d; this site understands format %d) and uses something this version does not know: %s Update the Companion plugin on this site to run it.',
+				self::format_of( $recipe ),
+				Companion_Rehearsal::FORMAT,
+				$error
+			);
+		}
+		return 'The shared rehearsal is not valid here: ' . $error;
 	}
 }

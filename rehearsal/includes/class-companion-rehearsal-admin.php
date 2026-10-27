@@ -56,6 +56,7 @@ final class Companion_Rehearsal_Admin {
 					'runUsers' => Companion_Rehearsal_Runs::run_users(),
 					'steps'    => Companion_Rehearsal_Schema::STEPS,
 					'matchers' => Companion_Rehearsal_Schema::MATCHERS,
+					'format'   => Companion_Rehearsal::FORMAT,
 					'budgetKeys' => Companion_Rehearsal_Schema::BUDGET_KEYS,
 					// A colleague's install link lands here as ?install=<share URL>; the modal confirms before anything is saved.
 					'install'  => isset( $_GET['install'] ) ? esc_url_raw( wp_unslash( $_GET['install'] ) ) : '', // phpcs:ignore WordPress.Security.NonceVerification.Recommended

@@ -116,6 +116,15 @@
 		return !! ( r.missing && r.missing.length );
 	}
 
+	// Written for a newer Rehearsal than this one: it can run, but some steps may not work.
+	function newerText( format ) {
+		return `Made with a newer version of Rehearsal (format ${ format }; this site understands format ${ data.format }). Some steps may not work; update the Companion plugin to be sure.`;
+	}
+
+	function newerPill( r ) {
+		return r.newer ? ` <span class="rh-pill stale" title="${ esc( newerText( r.format ) ) }">Newer format</span>` : '';
+	}
+
 	function needsPill( r ) {
 		if ( ! blocked( r ) ) return '';
 		const why = r.missing
@@ -306,7 +315,7 @@
 						<strong><button type="button" class="button-link rh-title" data-open="${ i }">${ esc( r.title ) }</button></strong>
 						<div class="rh-meta">${ meta.join( ' · ' ) }</div>
 					</td>
-					<td><span class="rh-pill ${ cls }">${ label }</span>${ r.recipe.budgets ? slowPill( r.live || r.lastRun ) : '' }${ needsPill( r ) }</td>
+					<td><span class="rh-pill ${ cls }">${ label }</span>${ r.recipe.budgets ? slowPill( r.live || r.lastRun ) : '' }${ needsPill( r ) }${ newerPill( r ) }</td>
 					<td><button type="button" class="button-link" data-toggle="${ i }" aria-expanded="${ r.open }">${
 						r.open ? 'Hide log' : 'Log'
 					}</button></td>
@@ -475,6 +484,7 @@
 			<p><b><code>"requires"</code></b> lists plugin slugs (folder names, or text domains) that must be active, such as <code>["jetpack"]</code>. Without them the rehearsal is shown but can't run.</p>
 			<p><b><code>"theme"</code></b> names the theme that must be active (or one of a list), such as <code>"twentytwentyfour"</code>; a child of it counts.</p>
 			<p><b><code>"role"</code></b> runs the rehearsal as a test user with that role, such as <code>"editor"</code> (created as <code>rehearsal-editor</code> the first time). Without it, it runs as you.</p>
+			<p><b><code>"format"</code></b> is the rehearsal format it was written in, added when it's saved. A rehearsal from a newer version of Rehearsal than this site's still runs, with a warning.</p>
 			<p><b>Page loads</b> are measured only when the rehearsal sets <code>"budgets"</code>, e.g. <code>{ "lcp": 2500, "weight": 2097152 }</code>. Pages over a limit get a notice, never a failure. Keys: ${ data.budgetKeys.map( ( k ) => `<code>${ k }</code>` ).join( ' ' ) }; times in ms, CLS unitless, sizes in compressed bytes.</p>
 			<p><b>Selectors:</b> CSS, <code>text=…</code>, <code>role=…</code>, <code>:has-text("…")</code>, and <code>a &gt;&gt; b</code> to look inside <code>a</code> or inside an iframe.</p>
 			<p><b><code>"covers"</code></b> labels what the rehearsal exercises, such as <code>["packages/forms"]</code> or <code>["src/checkout/*"]</code>. A CI job can match them against what a change touched and run only the rehearsals that apply. Leave it out for a rehearsal you only run by hand.</p>
@@ -486,6 +496,7 @@
 		const info = r
 			? `<dl class="rh-m-info">
 				<dt>Rehearsal ID</dt><dd><code>${ short( r.hash ) }</code></dd>
+				<dt>Format</dt><dd>${ r.format }${ r.newer ? ` <span class="rh-error">${ esc( newerText( r.format ) ) }</span>` : '' }</dd>
 				${ r.recipe.requires ? `<dt>Requires plugins</dt><dd>${ esc( r.recipe.requires.join( ', ' ) ) }</dd>` : '' }
 				${ r.recipe.theme ? `<dt>Requires theme</dt><dd>${ esc( [].concat( r.recipe.theme ).join( ' or ' ) ) }</dd>` : '' }
 				${ r.recipe.role ? `<dt>Runs as</dt><dd>${ esc( r.recipe.role ) } (test user rehearsal-${ esc( r.recipe.role ) })</dd>` : '' }
@@ -640,8 +651,10 @@
 					<dt>Requires plugins</dt><dd>${ p.recipe.requires ? esc( p.recipe.requires.join( ', ' ) ) : 'None' }</dd>
 					<dt>Requires theme</dt><dd>${ p.recipe.theme ? esc( [].concat( p.recipe.theme ).join( ' or ' ) ) : 'Any' }</dd>
 					<dt>Runs as</dt><dd>${ p.recipe.role ? esc( p.recipe.role ) : 'you (the logged-in admin)' }</dd>
+					<dt>Format</dt><dd>${ p.format }${ p.shared_by ? ` (shared by a site running Rehearsal ${ esc( p.shared_by ) })` : '' }</dd>
 				</dl>
 				${ p.missing && p.missing.length ? `<p class="rh-error">This site is missing what it needs: ${ esc( p.missing.map( ( m ) => ( m.kind === 'role' ? `the "${ m.name }" role` : `${ m.kind === 'theme' ? 'theme ' : '' }${ m.name } (${ m.state === 'inactive' ? 'not active' : 'not installed' })` ) ).join( ', ' ) ) }. You can install it, but it won't run until they are active.</p>` : '' }
+				${ p.newer ? `<p class="rh-error">${ esc( newerText( p.format ) ) }</p>` : '' }
 				${ p.updates ? '<p class="rh-modal-note">You installed this link before. Installing again replaces your copy with this version.</p>' : '' }
 				<details><summary>Steps</summary><pre class="rh-m-pre">${ esc( JSON.stringify( p.recipe, null, 2 ) ) }</pre></details>`;
 			button.disabled = false;
@@ -1172,6 +1185,7 @@
 		renderRecipes();
 
 		let status = 'pass';
+		if ( r.newer ) run.log.push( { ok: true, msg: `Warning: ${ newerText( r.format ) }`, ms: 0 } );
 		if ( r.recipe.needs === 'playwright' ) {
 			run.log.push( { ok: true, msg: 'Needs Playwright, so the browser did not run it. Saved as waiting for the Playwright runner.', ms: 0 } );
 			status = 'queued';

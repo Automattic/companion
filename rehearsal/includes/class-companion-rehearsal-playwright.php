@@ -134,6 +134,7 @@ final class Companion_Rehearsal_Playwright {
 			' * Rehearsal: ' . str_replace( '*/', '* /', $payload['title'] ),
 			' * Rehearsal ' . substr( $payload['id'], 0, 7 ) . ' from ' . $payload['site'] . ', converted to Playwright.',
 			' *',
+			' * Rehearsal format: ' . Companion_Rehearsal_Schema::format_of( $def ) . '.',
 			' * Requires plugins: ' . ( empty( $def['requires'] ) ? 'none' : implode( ', ', $def['requires'] ) ) . '.',
 			' * Requires theme: ' . ( empty( $def['theme'] ) ? 'any' : implode( ' or ', (array) $def['theme'] ) ) . '.',
 			' * Runs as: ' . ( empty( $def['role'] ) ? 'the logged-in user' : $def['role'] . ' (uses STORAGE_STATE_' . strtoupper( str_replace( '-', '_', $def['role'] ) ) . ' when set)' ) . '.',

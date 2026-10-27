@@ -94,6 +94,16 @@ the form, page or response it just created.
 | `covers` | `[ "packages/forms" ]` | Labels for what the rehearsal exercises, so a CI job can pick rehearsals by what changed. |
 | `needs` | `"playwright"` | Skips the browser runner; for rehearsals that need screenshots or other sites. |
 | `timeout` | `20000` | Default step timeout in ms. |
+| `format` | `1` | The rehearsal format it was written in. Added when the rehearsal is saved; you don't write it. |
+
+### Versions
+
+Every rehearsal records the format it was written in (`"format": 1`). A Companion release raises
+`Companion_Rehearsal::FORMAT` when it adds something older versions can't run: a new step, matcher or
+setting. A site whose Rehearsal is older than a rehearsal's format still runs it, but warns in the
+list ("Newer format"), in the dialog, before installing, and as the first line of the run log. When
+an older version can't even read it, installing explains that the Companion plugin needs updating.
+The rehearsal ID ignores the format, so stamping it never makes results stale.
 
 Budget keys are `ttfb`, `fcp`, `lcp` (ms), `cls`, `requests`, `weight` and `js` (compressed bytes).
 Going over is a notice, never a failure.

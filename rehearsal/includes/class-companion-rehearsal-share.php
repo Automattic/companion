@@ -47,6 +47,7 @@ final class Companion_Rehearsal_Share {
 			'source' => self::share_url( $post->ID ),
 			'site'   => home_url( '/' ),
 			'build'  => Companion_Rehearsal_Admin::build(),
+			'shared_by' => Companion_Rehearsal::VERSION,
 		);
 	}
 
@@ -128,6 +129,7 @@ button { padding: 8px 16px; font: inherit; font-weight: 600; color: #fff; backgr
 			<dt>Requires plugins</dt><dd><?php echo esc_html( empty( $payload['definition']['requires'] ) ? 'None' : implode( ', ', $payload['definition']['requires'] ) ); ?></dd>
 			<dt>Requires theme</dt><dd><?php echo esc_html( empty( $payload['definition']['theme'] ) ? 'Any' : implode( ' or ', (array) $payload['definition']['theme'] ) ); ?></dd>
 			<dt>Runs as</dt><dd><?php echo esc_html( empty( $payload['definition']['role'] ) ? 'The logged-in admin' : $payload['definition']['role'] ); ?></dd>
+			<dt>Format</dt><dd><?php echo (int) Companion_Rehearsal_Schema::format_of( $payload['definition'] ); ?> (shared by a site running Rehearsal <?php echo esc_html( $payload['shared_by'] ); ?>)</dd>
 			<dt>Shared from</dt><dd><?php echo esc_html( $payload['site'] ); ?> (<?php echo esc_html( $payload['build'] ); ?>)</dd>
 			<dt>For CI</dt><dd><a href="<?php echo esc_url( $json_url ); ?>">JSON</a> · <a href="<?php echo esc_url( add_query_arg( 'format', 'playwright', $payload['source'] ) ); ?>">Playwright test</a></dd>
 		</dl>

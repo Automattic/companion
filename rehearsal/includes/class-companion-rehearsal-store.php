@@ -89,6 +89,8 @@ final class Companion_Rehearsal_Store {
 			'shareUrl' => Companion_Rehearsal_Share::share_url( $post->ID ),
 			'source'   => (string) get_post_meta( $post->ID, '_rehearsal_source', true ),
 			'missing'  => Companion_Rehearsal_Requirements::missing_requirements( $recipe ),
+			'format'   => Companion_Rehearsal_Schema::format_of( $recipe ),
+			'newer'    => Companion_Rehearsal_Schema::is_newer( $recipe ),
 			'lastRun'  => $last ? Companion_Rehearsal_Runs::run_for_js( $last[0] ) : null,
 		);
 	}
@@ -104,6 +106,10 @@ final class Companion_Rehearsal_Store {
 	 */
 	public static function save_recipe( $id, $title, array $recipe, $source = '' ) {
 		global $wpdb;
+		// Stamp the format a rehearsal was written in; one written for a newer version keeps its own.
+		if ( ! isset( $recipe['format'] ) ) {
+			$recipe = array( 'format' => Companion_Rehearsal::FORMAT ) + $recipe;
+		}
 		$post = array(
 			'post_type'   => Companion_Rehearsal::RECIPE,
 			'post_status' => 'publish',

@@ -41,11 +41,14 @@ class SchemaTest extends TestCase {
 			'role with capitals'          => array( array( 'role' => 'Editor', 'steps' => $step ), '"role"' ),
 			'covers label with spaces'    => array( array( 'covers' => array( 'packages forms' ), 'steps' => $step ), '"covers"' ),
 			'needs something else'        => array( array( 'needs' => 'selenium', 'steps' => $step ), '"needs"' ),
+			'format zero'                 => array( array( 'format' => 0, 'steps' => $step ), '"format"' ),
+			'format as text'              => array( array( 'format' => '2', 'steps' => $step ), '"format"' ),
 		);
 	}
 
 	public function test_accepts_every_setting_together() {
 		$rehearsal = array(
+			'format'   => 1,
 			'requires' => array( 'jetpack' ),
 			'theme'    => array( 'twentytwentyfour', 'twentytwentyfive' ),
 			'role'     => 'editor',
@@ -68,6 +71,38 @@ class SchemaTest extends TestCase {
 
 		$this->assertSame( $id( $pretty ), $id( $compact ) );
 		$this->assertNotSame( $id( $compact ), $id( $changed ) );
+	}
+
+	public function test_the_id_ignores_the_format() {
+		$id = static fn( $r ) => Companion_Rehearsal_Schema::hash( Companion_Rehearsal_Schema::canonical( $r ) );
+		$this->assertSame( $id( array( 'steps' => array( array( 'goto' => '/' ) ) ) ), $id( array( 'format' => 1, 'steps' => array( array( 'goto' => '/' ) ) ) ) );
+	}
+
+	/**
+	 * @dataProvider formats
+	 *
+	 * @param array $rehearsal Rehearsal.
+	 * @param bool  $newer     Whether it was written for a newer Rehearsal.
+	 */
+	public function test_knows_when_a_rehearsal_is_from_a_newer_version( $rehearsal, $newer ) {
+		$this->assertSame( $newer, Companion_Rehearsal_Schema::is_newer( $rehearsal ) );
+	}
+
+	public function formats() {
+		return array(
+			'no format (older rehearsal)' => array( array(), false ),
+			'this version'                => array( array( 'format' => Companion_Rehearsal::FORMAT ), false ),
+			'a newer version'             => array( array( 'format' => Companion_Rehearsal::FORMAT + 1 ), true ),
+		);
+	}
+
+	public function test_install_error_says_to_update_for_a_newer_rehearsal() {
+		$newer = Companion_Rehearsal_Schema::install_error( array( 'format' => Companion_Rehearsal::FORMAT + 1 ), 'Step 2 must have exactly one of: goto.' );
+		$same  = Companion_Rehearsal_Schema::install_error( array( 'format' => Companion_Rehearsal::FORMAT ), 'Step 2 must have exactly one of: goto.' );
+
+		$this->assertStringContainsString( 'Update the Companion plugin', $newer );
+		$this->assertStringContainsString( 'Step 2 must have exactly one of', $newer );
+		$this->assertStringNotContainsString( 'Update the Companion plugin', $same );
 	}
 
 	public function test_canonical_json_keeps_slashes_and_unicode_readable() {

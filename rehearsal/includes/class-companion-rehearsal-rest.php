@@ -213,7 +213,7 @@ final class Companion_Rehearsal_Rest {
 		$recipe = $payload['definition'] ?? null;
 		$error  = Companion_Rehearsal_Schema::validate( $recipe );
 		if ( $error ) {
-			return new WP_Error( 'rehearsal_invalid', 'The shared rehearsal is not valid here: ' . $error, array( 'status' => 400 ) );
+			return new WP_Error( 'rehearsal_invalid', Companion_Rehearsal_Schema::install_error( is_array( $recipe ) ? $recipe : array(), $error ), array( 'status' => 400 ) );
 		}
 		$title    = trim( sanitize_text_field( $payload['title'] ?? '' ) );
 		$title    = '' === $title ? 'Shared rehearsal' : $title;
@@ -234,6 +234,9 @@ final class Companion_Rehearsal_Rest {
 			'site'    => esc_url_raw( $payload['site'] ?? '' ),
 			'build'   => sanitize_text_field( $payload['build'] ?? '' ),
 			'updates' => $existing ? (int) $existing[0] : 0,
+			'format'  => Companion_Rehearsal_Schema::format_of( $recipe ),
+			'newer'   => Companion_Rehearsal_Schema::is_newer( $recipe ),
+			'shared_by' => sanitize_text_field( (string) ( $payload['shared_by'] ?? '' ) ),
 			'missing' => Companion_Rehearsal_Requirements::missing_requirements( $recipe ),
 		);
 		if ( $request['dry_run'] ) {
