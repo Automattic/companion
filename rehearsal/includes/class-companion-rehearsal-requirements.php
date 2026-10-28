@@ -81,14 +81,16 @@ final class Companion_Rehearsal_Requirements {
 	 */
 	public static function find_missing( array $recipe, array $plugins, array $active_themes, array $installed_themes, array $roles ) {
 		$missing = array();
-		foreach ( (array) ( $recipe['requires'] ?? array() ) as $slug ) {
-			$plugin = $plugins[ $slug ] ?? null;
-			if ( ! $plugin || ! $plugin['active'] ) {
+		foreach ( (array) ( $recipe['requires'] ?? array() ) as $requirement ) {
+			// "a or b": any one of them active will do.
+			$slugs = explode( ' or ', $requirement );
+			$found = array_filter( array_map( static fn( $slug ) => $plugins[ $slug ] ?? null, array_combine( $slugs, $slugs ) ) );
+			if ( ! array_filter( $found, static fn( $plugin ) => $plugin['active'] ) ) {
 				$missing[] = array(
 					'kind'  => 'plugin',
-					'slug'  => $slug,
-					'name'  => $plugin ? $plugin['name'] : $slug,
-					'state' => $plugin ? 'inactive' : 'missing',
+					'slug'  => $requirement,
+					'name'  => implode( ' or ', array_map( static fn( $slug ) => isset( $found[ $slug ] ) ? $found[ $slug ]['name'] : $slug, $slugs ) ),
+					'state' => $found ? 'inactive' : 'missing',
 				);
 			}
 		}

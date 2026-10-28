@@ -57,21 +57,32 @@ class SchemaTest extends TestCase {
 			'toHaveCount as text'         => array( array( 'steps' => array( array( 'expect' => 'li', 'toHaveCount' => '3' ) ) ), '"toHaveCount"' ),
 			'screenshot outside its dir'  => array( array( 'steps' => array( array( 'screenshot' => '../../x' ) ) ), '"screenshot"' ),
 			'ignore as text'              => array( array( 'steps' => array( array( 'expectNoConsoleErrors' => array( 'ignore' => 'x' ) ) ) ), '"expectNoConsoleErrors"' ),
+			// false used to check the same thing as true.
+			'toBeVisible false'           => array( array( 'steps' => array( array( 'expect' => 'h1', 'toBeVisible' => false ) ) ), '"not": true' ),
+			'toBeChecked false'           => array( array( 'steps' => array( array( 'expect' => '#a', 'toBeChecked' => false ) ) ), '"toBeChecked" must be true' ),
+			'toBeEnabled as text'         => array( array( 'steps' => array( array( 'expect' => '#a', 'toBeEnabled' => 'yes' ) ) ), '"toBeEnabled"' ),
+			'viewport tablet'             => array( array( 'viewport' => 'tablet', 'steps' => $step ), '"viewport" must be "desktop" or "mobile"' ),
+			'dialog with another answer'  => array( array( 'steps' => array( array( 'dialog' => 'ok' ) ) ), '"dialog" must be "accept" or "dismiss"' ),
+			'requires with a bad or'      => array( array( 'requires' => array( 'jetpack or' ), 'steps' => $step ), '"requires"' ),
+			'requires with a comma'       => array( array( 'requires' => array( 'jetpack, akismet' ), 'steps' => $step ), '"requires"' ),
 		);
 	}
 
 	public function test_accepts_every_setting_together() {
 		$rehearsal = array(
 			'format'   => 1,
-			'requires' => array( 'jetpack' ),
+			'requires' => array( 'jetpack', 'akismet or antispam-bee' ),
 			'theme'    => array( 'twentytwentyfour', 'twentytwentyfive' ),
 			'role'     => 'editor',
+			'viewport' => 'mobile',
 			'budgets'  => array( 'lcp' => 2500, 'cls' => 0.1 ),
 			'covers'   => array( 'packages/forms', 'src/checkout/*' ),
 			'timeout'  => 20000,
 			'steps'    => array(
 				array( 'goto' => '/wp-admin/' ),
 				array( 'expect' => 'h1', 'not' => true, 'toBeVisible' => true, 'optional' => true, 'timeout' => 4000 ),
+				array( 'dialog' => 'accept', 'value' => 'Ada' ),
+				array( 'dialog' => 'dismiss' ),
 			),
 		);
 		$this->assertSame( '', Companion_Rehearsal_Schema::validate( $rehearsal ) );
@@ -85,6 +96,19 @@ class SchemaTest extends TestCase {
 
 		$this->assertSame( $id( $pretty ), $id( $compact ) );
 		$this->assertNotSame( $id( $compact ), $id( $changed ) );
+	}
+
+	public function test_the_id_ignores_key_order_but_not_step_order() {
+		$id = static fn( $json ) => Companion_Rehearsal_Schema::hash( Companion_Rehearsal_Schema::canonical( json_decode( $json, true ) ) );
+
+		$this->assertSame(
+			$id( '{"requires":["jetpack"],"steps":[{"fill":"#a","value":"x"},{"expect":"h1","toHaveText":"Hi"}]}' ),
+			$id( '{"steps":[{"value":"x","fill":"#a"},{"toHaveText":"Hi","expect":"h1"}],"requires":["jetpack"]}' )
+		);
+		$this->assertNotSame(
+			$id( '{"steps":[{"goto":"/a"},{"goto":"/b"}]}' ),
+			$id( '{"steps":[{"goto":"/b"},{"goto":"/a"}]}' )
+		);
 	}
 
 	public function test_the_id_ignores_the_format() {
@@ -122,7 +146,10 @@ class SchemaTest extends TestCase {
 
 	public function stamps() {
 		return array(
-			'none: this version\'s'  => array( array( 'steps' => array() ), Companion_Rehearsal::FORMAT ),
+			'none: the oldest that runs it' => array( array( 'steps' => array( array( 'goto' => '/' ) ) ), 1 ),
+			'none, with a dialog step'      => array( array( 'steps' => array( array( 'dialog' => 'accept' ) ) ), 2 ),
+			'none, with either-or requires' => array( array( 'requires' => array( 'a or b' ), 'steps' => array() ), 2 ),
+			'none, pinned to a viewport'    => array( array( 'viewport' => 'desktop', 'steps' => array() ), 2 ),
 			'this version\'s'        => array( array( 'format' => Companion_Rehearsal::FORMAT ), Companion_Rehearsal::FORMAT ),
 			'a newer one stays newer' => array( array( 'format' => Companion_Rehearsal::FORMAT + 1 ), Companion_Rehearsal::FORMAT + 1 ),
 		);

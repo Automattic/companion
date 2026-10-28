@@ -11,6 +11,9 @@ defined( 'ABSPATH' ) || exit;
  * Saved runs: cleaning what the runner sends, storing it, and finding runs again.
  */
 final class Companion_Rehearsal_Runs {
+	// What a run's ref may be: a short label, so it is safe in a URL and a meta query.
+	const REF_PATTERN = '^[A-Za-z0-9._-]{0,64}$';
+
 	/**
 	 * The step log as the runner sent it, limited to known fields and sizes.
 	 *
@@ -91,7 +94,8 @@ final class Companion_Rehearsal_Runs {
 	/**
 	 * One page of runs, newest first, narrowed by recipe, result, who ran it, and a search.
 	 *
-	 * @param array $filters recipe (ID), status (pass|fail|queued), user (ID), search (title text or run number), page.
+	 * @param array $filters recipe (ID), status (pass|fail|queued), user (ID), ref (label the run was started
+	 *                       with), search (title text or run number), page.
 	 * @return array { runs, total, pages }
 	 */
 	public static function find_runs( array $filters ) {
@@ -108,9 +112,13 @@ final class Companion_Rehearsal_Runs {
 		if ( ! empty( $filters['user'] ) ) {
 			$args['author'] = (int) $filters['user'];
 		}
-		if ( ! empty( $filters['status'] ) ) {
-			$args['meta_key']   = '_rehearsal_status'; // phpcs:ignore WordPress.DB.SlowDBQuery.slow_db_query_meta_key
-			$args['meta_value'] = $filters['status']; // phpcs:ignore WordPress.DB.SlowDBQuery.slow_db_query_meta_value
+		foreach ( array( 'status', 'ref' ) as $key ) {
+			if ( ! empty( $filters[ $key ] ) ) {
+				$args['meta_query'][] = array( // phpcs:ignore WordPress.DB.SlowDBQuery.slow_db_query_meta_query
+					'key'   => "_rehearsal_$key",
+					'value' => (string) $filters[ $key ],
+				);
+			}
 		}
 		if ( preg_match( '/^#?(\d+)$/', $search, $m ) ) {
 			$args['p'] = (int) $m[1];
@@ -149,20 +157,40 @@ final class Companion_Rehearsal_Runs {
 	}
 
 	/**
+	 * A rehearsal's latest run.
+	 *
+	 * @param int $recipe_id Rehearsal ID.
+	 * @return array|null As run_for_js() shapes it.
+	 */
+	public static function latest( $recipe_id ) {
+		$last = get_posts(
+			array(
+				'post_type'      => Companion_Rehearsal::RUN,
+				'post_status'    => 'publish',
+				'post_parent'    => $recipe_id,
+				'posts_per_page' => 1,
+			)
+		);
+		return $last ? self::run_for_js( $last[0] ) : null;
+	}
+
+	/**
 	 * A run as the runner and the history table see it.
 	 *
 	 * @param WP_Post $run Run post.
 	 * @return array
 	 */
 	public static function run_for_js( $run ) {
-		$user = get_userdata( (int) $run->post_author );
+		$user   = get_userdata( (int) $run->post_author );
+		$recipe = (string) get_post_meta( $run->ID, '_rehearsal_recipe', true );
 		return array(
 			'id'        => $run->ID,
 			'recipeId'  => (int) $run->post_parent,
 			// The run's own title ("<recipe>: <status>") outlives a permanently deleted recipe.
-			'title'     => get_post( $run->post_parent ) ? get_the_title( $run->post_parent ) : preg_replace( '/: (pass|fail|queued)$/', '', $run->post_title ) . ' (rehearsal deleted)',
+			'title'     => get_post( $run->post_parent ) ? get_post( $run->post_parent )->post_title : preg_replace( '/: (pass|fail|queued)$/', '', $run->post_title ) . ' (rehearsal deleted)',
 			'status'    => get_post_meta( $run->ID, '_rehearsal_status', true ),
-			'hash'      => get_post_meta( $run->ID, '_rehearsal_recipe_hash', true ),
+			// Recomputed from the steps the run used, so runs saved before IDs ignored key order still match.
+			'hash'      => '' === $recipe ? get_post_meta( $run->ID, '_rehearsal_recipe_hash', true ) : Companion_Rehearsal_Schema::hash( $recipe ),
 			'build'     => get_post_meta( $run->ID, '_rehearsal_build', true ),
 			'log'       => json_decode( (string) get_post_meta( $run->ID, '_rehearsal_log', true ), true ),
 			'snapshots' => count( (array) json_decode( (string) get_post_meta( $run->ID, '_rehearsal_snapshots', true ), true ) ),
@@ -171,6 +199,9 @@ final class Companion_Rehearsal_Runs {
 			'by'        => $user ? $user->user_login : '',
 			'byId'      => (int) $run->post_author,
 			'role'      => (string) get_post_meta( $run->ID, '_rehearsal_role', true ),
+			'runner'    => 'playwright' === get_post_meta( $run->ID, '_rehearsal_runner', true ) ? 'playwright' : 'browser',
+			'ref'       => (string) get_post_meta( $run->ID, '_rehearsal_ref', true ),
+			'viewport'  => 'mobile' === get_post_meta( $run->ID, '_rehearsal_viewport', true ) ? 'mobile' : 'desktop',
 		);
 	}
 
@@ -219,6 +250,9 @@ final class Companion_Rehearsal_Runs {
 					'_rehearsal_snapshots'   => wp_slash( wp_json_encode( $snapshots ) ),
 					'_rehearsal_errors'      => wp_slash( wp_json_encode( $errors ) ),
 					'_rehearsal_role'        => sanitize_key( (string) ( json_decode( $recipe->post_content, true )['role'] ?? '' ) ),
+					'_rehearsal_runner'      => $request['runner'],
+					'_rehearsal_ref'         => (string) $request['ref'],
+					'_rehearsal_viewport'    => $request['viewport'],
 				),
 			),
 			true

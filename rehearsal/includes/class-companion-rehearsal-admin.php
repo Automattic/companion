@@ -42,8 +42,8 @@ final class Companion_Rehearsal_Admin {
 			return;
 		}
 		$url = Companion_Rehearsal::url( 'assets/' );
-		wp_enqueue_style( 'rehearsal', $url . 'runner.css', array(), Companion_Rehearsal::VERSION );
-		wp_enqueue_script( 'rehearsal', $url . 'runner.js', array( 'wp-api-fetch' ), Companion_Rehearsal::VERSION, true );
+		wp_enqueue_style( 'rehearsal', $url . 'runner.css', array(), self::asset_version( 'runner.css' ) );
+		wp_enqueue_script( 'rehearsal', $url . 'runner.js', array( 'wp-api-fetch' ), self::asset_version( 'runner.js' ), true );
 		wp_add_inline_script(
 			'rehearsal',
 			'window.rehearsalData = ' . wp_json_encode(
@@ -60,9 +60,46 @@ final class Companion_Rehearsal_Admin {
 					'budgetKeys' => Companion_Rehearsal_Schema::BUDGET_KEYS,
 					// A colleague's install link lands here as ?install=<share URL>; the modal confirms before anything is saved.
 					'install'  => isset( $_GET['install'] ) ? esc_url_raw( wp_unslash( $_GET['install'] ) ) : '', // phpcs:ignore WordPress.Security.NonceVerification.Recommended
+					'autorun'  => self::autorun(),
 				)
 			) . ';',
 			'before'
+		);
+	}
+
+	/**
+	 * An asset's version: the release plus when the file last changed. JN serves assets with a 10-year
+	 * cache, so a copy synced to a site without a new release would otherwise keep the old file.
+	 *
+	 * @param string $file File name in assets/.
+	 * @return string
+	 */
+	private static function asset_version( $file ) {
+		$changed = @filemtime( Companion_Rehearsal::path( 'assets/' . $file ) ); // phpcs:ignore WordPress.PHP.NoSilencedErrors.Discouraged
+		return Companion_Rehearsal::VERSION . ( $changed ? '.' . $changed : '' );
+	}
+
+	/**
+	 * What a run link (&run=<ids>.<key>&ref=<label>) asks this screen to run as soon as it opens.
+	 * The key is checked here, so a link from elsewhere can't make an admin's browser run anything.
+	 *
+	 * @return array|null { ids, ref } or { error }, or null without a run link.
+	 */
+	private static function autorun() {
+		if ( empty( $_GET['run'] ) ) { // phpcs:ignore WordPress.Security.NonceVerification.Recommended
+			return null;
+		}
+		$ids = Companion_Rehearsal_Share::ids_from_run_token( sanitize_text_field( wp_unslash( $_GET['run'] ) ) ); // phpcs:ignore WordPress.Security.NonceVerification.Recommended
+		$ref = isset( $_GET['ref'] ) ? sanitize_text_field( wp_unslash( $_GET['ref'] ) ) : ''; // phpcs:ignore WordPress.Security.NonceVerification.Recommended
+		if ( ! $ids ) {
+			return array( 'error' => 'This run link is not valid. Copy it again from wp rehearsal list or the rehearsal\'s dialog.' );
+		}
+		if ( ! preg_match( '/' . Companion_Rehearsal_Runs::REF_PATTERN . '/', $ref ) ) {
+			return array( 'error' => 'The run link\'s ref can only have letters, numbers, ".", "_" and "-", up to 64 of them.' );
+		}
+		return array(
+			'ids' => $ids,
+			'ref' => $ref,
 		);
 	}
 

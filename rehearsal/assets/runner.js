@@ -34,18 +34,33 @@
 	const short = ( hash ) => String( hash || '' ).slice( 0, 7 );
 
 	root.innerHTML = `
-		<div class="rh-toolbar">
-			<button type="button" class="button button-primary" id="rh-run">Run selected</button>
-			<button type="button" class="button" id="rh-run-failed">Run failed</button>
-			<button type="button" class="button" id="rh-playwright" title="Export the selected rehearsals as one Playwright test file">Run in Playwright</button>
-			<span class="rh-toolbar-sep" aria-hidden="true"></span>
-			<button type="button" class="button" id="rh-add">Add rehearsal</button>
-			<button type="button" class="button" id="rh-install">Install from link</button>
-			<span class="rh-summary" id="rh-summary"></span>
+		<div class="rh-progress" id="rh-progress" role="status" hidden>
+			<div class="rh-progress-text"><span id="rh-progress-text"></span><button type="button" class="button-link" id="rh-progress-close" hidden aria-label="Hide progress">×</button></div>
+			<div class="rh-progress-track" aria-hidden="true"><span id="rh-progress-fill"></span></div>
 		</div>
+		<div class="rh-toolbar">
+			<div class="rh-toolbar-group">
+				<button type="button" class="button button-primary" id="rh-run">Run selected</button>
+				<button type="button" class="button" id="rh-run-failed">Run failed</button>
+				<span class="rh-estimate" id="rh-estimate"></span>
+			</div>
+			<div class="rh-toolbar-group">
+				<button type="button" class="button rh-quiet" id="rh-playwright" title="Export the selected rehearsals as one Playwright test file">Run in Playwright</button>
+				<button type="button" class="button rh-quiet" id="rh-install">Install from link</button>
+				<button type="button" class="button" id="rh-add">Add rehearsal</button>
+			</div>
+		</div>
+		<p class="rh-autorun" id="rh-autorun" role="status" hidden></p>
 		<div class="rh-layout">
 			<div class="rh-main" id="rh-recipes"></div>
 			<aside class="rh-frame" aria-label="Test frame">
+				<div class="rh-frame-tools">
+					<span class="rh-segmented" role="group" aria-label="Viewport">
+						<button type="button" class="button button-small" data-viewport="desktop" title="Run at desktop width, scaled to fit">Desktop</button>
+						<button type="button" class="button button-small" data-viewport="mobile" title="Run at phone width (390 × 844), so pages use their mobile layout">Mobile</button>
+					</span>
+					<span class="rh-muted" id="rh-viewport-note"></span>
+				</div>
 				<div class="rh-frame-bar"><span id="rh-frame-url">Waiting for a run</span><span id="rh-frame-step"></span></div>
 				<div class="rh-frame-viewport" id="rh-frame-viewport">
 					<iframe name="rehearsal" id="rh-frame" title="Test frame the runner drives" src="about:blank"></iframe>
@@ -73,16 +88,34 @@
 	const runButton = document.getElementById( 'rh-run' );
 	const runFailedButton = document.getElementById( 'rh-run-failed' );
 
-	// Pages render at least desktop width and are scaled to fit, so a narrow column doesn't trigger mobile layouts.
-	const MIN_FRAME_WIDTH = 1280;
-	const FRAME_HEIGHT = 800;
-	frame.style.height = FRAME_HEIGHT + 'px';
+	// Desktop pages render at least 1280 px wide and are scaled to fit, so a narrow column doesn't trigger
+	// mobile layouts. Mobile renders at a phone's size, so pages use their mobile layout (CSS only: the
+	// browser's user agent stays the same, so wp_is_mobile() still says desktop).
+	const VIEWPORTS = {
+		desktop: { width: 1280, height: 800, fill: true },
+		mobile: { width: 390, height: 844, fill: false },
+	};
+	// Per-browser conveniences; the page works without them.
+	const remember = ( key, value ) => {
+		try {
+			if ( value === undefined ) return window.localStorage.getItem( 'rehearsal-' + key );
+			window.localStorage.setItem( 'rehearsal-' + key, value );
+		} catch ( e ) {}
+		return null;
+	};
+	state.viewport = remember( 'viewport' ) === 'mobile' ? 'mobile' : 'desktop';
+	// The size in use: a running rehearsal's own "viewport" setting wins over the switch.
+	const currentViewport = () => state.runViewport || state.viewport;
 	const fitFrame = () => {
-		const width = Math.max( MIN_FRAME_WIDTH, viewport.clientWidth );
-		const scale = viewport.clientWidth / width;
+		const size = VIEWPORTS[ currentViewport() ];
+		const width = size.fill ? Math.max( size.width, viewport.clientWidth ) : size.width;
+		const scale = Math.min( 1, viewport.clientWidth / width );
 		frame.style.width = width + 'px';
+		frame.style.height = size.height + 'px';
 		frame.style.transform = `scale(${ scale })`;
-		viewport.style.height = FRAME_HEIGHT * scale + 'px';
+		frame.style.marginInlineStart = Math.max( 0, ( viewport.clientWidth - width * scale ) / 2 ) + 'px';
+		viewport.style.height = size.height * scale + 'px';
+		viewport.classList.toggle( 'is-mobile', ! size.fill );
 	};
 	new ResizeObserver( fitFrame ).observe( viewport );
 	fitFrame();
@@ -92,9 +125,35 @@
 		viewport.removeAttribute( 'style' );
 		frame.removeAttribute( 'style' );
 		viewport.scrollTo( 0, 0 );
-		frame.style.height = FRAME_HEIGHT + 'px';
 		fitFrame();
 	}
+
+	function renderFrameTools() {
+		root.querySelectorAll( '[data-viewport]' ).forEach( ( b ) => {
+			b.setAttribute( 'aria-pressed', String( b.dataset.viewport === currentViewport() ) );
+			// A run keeps the size it started with, so its steps all see the same layout.
+			b.disabled = state.running;
+		} );
+		document.getElementById( 'rh-viewport-note' ).textContent =
+			state.runViewport && state.runViewport !== state.viewport ? `This rehearsal runs on ${ state.runViewport } only` : '';
+	}
+
+	function setViewport( name ) {
+		state.viewport = name;
+		remember( 'viewport', name );
+		fitFrame();
+		renderFrameTools();
+	}
+
+	root.querySelector( '.rh-frame-tools' ).addEventListener( 'click', ( e ) => {
+		const view = e.target.closest( '[data-viewport]' );
+		if ( view && ! view.disabled ) setViewport( view.dataset.viewport );
+	} );
+	renderFrameTools();
+	document.getElementById( 'rh-progress-close' ).addEventListener( 'click', () => {
+		state.progress = null;
+		renderProgress();
+	} );
 
 	// ---------- Rendering ----------
 
@@ -294,6 +353,123 @@
 		return n ? ` <span class="rh-pill stale" title="Page loads over this rehearsal's budget">${ n } over budget</span>` : '';
 	}
 
+	// ---------- Estimates and progress ----------
+
+	// Time to save a run after its last step.
+	const SAVE_MS = 500;
+
+	const duration = ( ms ) => {
+		const s = Math.max( 0, Math.round( ms / 1000 ) );
+		return s < 60 ? `${ s } s` : `${ Math.floor( s / 60 ) } min${ s % 60 ? ` ${ s % 60 } s` : '' }`;
+	};
+
+	// Average time per step in a run's log, leaving out the 0 ms notes ({{run}}, role, warnings) and failed
+	// steps, which mostly wait out a timeout.
+	function stepMs( log ) {
+		const timed = ( log || [] ).filter( ( l ) => l.ok && l.ms > 0 );
+		return timed.length ? timed.reduce( ( t, l ) => t + l.ms, 0 ) / timed.length : null;
+	}
+
+	// The same across every rehearsal's last run, for rehearsals that have never run.
+	function typicalStepMs() {
+		const all = state.recipes.flatMap( ( r ) => ( r.lastRun && r.lastRun.log ) || [] );
+		return stepMs( all ) || 1500;
+	}
+
+	// How long a rehearsal should take, from its last run: the whole run when it passed, or its pace per
+	// step when it stopped early. One that has never run is guessed from the others.
+	function estimate( r ) {
+		const steps = r.recipe.needs === 'playwright' ? 0 : r.recipe.steps.length;
+		const log = r.lastRun && r.lastRun.log;
+		if ( log && log.length && r.lastRun.status === 'pass' ) {
+			return { ms: log.reduce( ( t, l ) => t + ( l.ms || 0 ), 0 ) + steps * STEP_PAUSE + SAVE_MS, guessed: false };
+		}
+		const pace = stepMs( log );
+		return { ms: steps * ( ( pace || typicalStepMs() ) + STEP_PAUSE ) + SAVE_MS, guessed: ! pace };
+	}
+
+	function totalEstimate( recipes ) {
+		const all = recipes.map( estimate );
+		return { ms: all.reduce( ( t, e ) => t + e.ms, 0 ), guessed: all.some( ( e ) => e.guessed ) };
+	}
+
+	let progressTimer = null;
+
+	function startProgress( picked ) {
+		state.progress = { picked, est: picked.map( estimate ), index: 0, step: 0, started: performance.now(), current: performance.now(), done: false };
+		clearInterval( progressTimer );
+		progressTimer = setInterval( renderProgress, 500 );
+		renderProgress();
+	}
+
+	function progressAt( index ) {
+		Object.assign( state.progress, { index, step: 0, current: performance.now() } );
+		renderProgress();
+	}
+
+	function progressStep( step ) {
+		if ( state.progress ) state.progress.step = step;
+		renderProgress();
+	}
+
+	function finishProgress() {
+		clearInterval( progressTimer );
+		if ( state.progress ) state.progress.done = true;
+		renderProgress();
+	}
+
+	function renderProgress() {
+		const p = state.progress;
+		const box = document.getElementById( 'rh-progress' );
+		if ( ! p ) {
+			box.hidden = true;
+			root.style.removeProperty( '--rh-progress-height' );
+			return;
+		}
+		const n = p.picked.length;
+		const now = performance.now();
+		const elapsed = now - p.started;
+		const total = p.est.reduce( ( t, e ) => t + e.ms, 0 );
+		const guessed = p.est.some( ( e ) => e.guessed );
+		let fraction;
+		let text;
+		let tone = 'running';
+		if ( p.done ) {
+			const results = p.picked.map( ( r ) => ( r.live ? 'unsaved' : r.lastRun && r.lastRun.status ) );
+			const count = ( status, word ) => {
+				const k = results.filter( ( x ) => x === status ).length;
+				return k ? `${ k } ${ word }` : '';
+			};
+			const tally = [ count( 'pass', 'passed' ), count( 'fail', 'failed' ), count( 'queued', 'need Playwright' ), count( 'unsaved', 'not saved' ) ].filter( Boolean );
+			tone = results.some( ( x ) => x === 'fail' || x === 'unsaved' ) ? 'fail' : 'pass';
+			fraction = 1;
+			text = `Ran ${ n } rehearsal${ n === 1 ? '' : 's' } in ${ duration( elapsed ) } (expected about ${ duration( total ) }${ guessed ? ', partly guessed' : '' }) · ${ tally.join( ' · ' ) }`;
+		} else {
+			const r = p.picked[ p.index ];
+			const steps = r.recipe.needs === 'playwright' ? 0 : r.recipe.steps.length;
+			const inCurrent = now - p.current;
+			const later = p.est.slice( p.index + 1 ).reduce( ( t, e ) => t + e.ms, 0 );
+			const over = inCurrent > p.est[ p.index ].ms;
+			const left = Math.max( 0, p.est[ p.index ].ms - inCurrent ) + later;
+			fraction = ( p.index + ( steps ? p.step / steps : 0 ) ) / n;
+			text = [
+				`Running ${ p.index + 1 } of ${ n }: ${ r.title }`,
+				steps ? `step ${ Math.max( 1, p.step ) } of ${ steps }` : '',
+				`${ duration( elapsed ) } so far`,
+				over ? `taking longer than last time${ later ? `; about ${ duration( later ) } for the rest` : '' }` : `about ${ duration( left ) } left${ guessed ? ' (partly guessed: some have never run)' : '' }`,
+			]
+				.filter( Boolean )
+				.join( ' · ' );
+		}
+		box.hidden = false;
+		box.className = `rh-progress ${ tone }`;
+		document.getElementById( 'rh-progress-text' ).textContent = text;
+		document.getElementById( 'rh-progress-fill' ).style.inlineSize = `${ Math.round( fraction * 100 ) }%`;
+		document.getElementById( 'rh-progress-close' ).hidden = ! p.done;
+		// The sticky frame sits below the sticky progress bar.
+		root.style.setProperty( '--rh-progress-height', `${ box.offsetHeight + 12 }px` );
+	}
+
 	function renderRecipes() {
 		const all = state.recipes.filter( ( r ) => ! blocked( r ) ).every( ( r ) => r.checked );
 		const rows = state.recipes
@@ -307,8 +483,10 @@
 					r.recipe.requires ? `requires ${ r.recipe.requires.map( esc ).join( ', ' ) }` : '',
 					r.recipe.theme ? `theme ${ esc( [].concat( r.recipe.theme ).join( ' or ' ) ) }` : '',
 					r.recipe.role ? `as ${ esc( r.recipe.role ) }` : '',
+					r.recipe.viewport ? `${ esc( r.recipe.viewport ) } only` : '',
 					r.source ? 'installed from a link' : '',
-					r.lastRun ? `last run ${ ago( r.lastRun.date ) } by ${ esc( r.lastRun.by ) }` : '',
+					r.lastRun ? `last run ${ ago( r.lastRun.date ) } by ${ esc( r.lastRun.by ) }${ r.lastRun.viewport === 'mobile' ? ' (mobile)' : '' }` : '',
+					r.lastRun && ! estimate( r ).guessed ? `takes about ${ duration( estimate( r ).ms ) }` : '',
 				].filter( Boolean );
 				const error = r.live && r.live.error ? `<p class="rh-error">${ esc( r.live.error ) }</p>` : '';
 				return `
@@ -348,31 +526,18 @@
 	}
 
 	function renderSummary() {
-		const counts = {};
-		state.recipes.forEach( ( r ) => {
-			const [ cls ] = statusOf( r );
-			if ( cls && cls !== 'running' ) counts[ cls ] = ( counts[ cls ] || 0 ) + 1;
-		} );
-		const order = [
-			[ 'pass', 'passed' ],
-			[ 'fail', 'failed' ],
-			[ 'stale', 'stale' ],
-			[ 'queued', 'need Playwright' ],
-		];
-		const parts = order
-			.filter( ( [ k ] ) => counts[ k ] )
-			.map( ( [ k, word ] ) => `<span class="rh-pill ${ k }">${ counts[ k ] } ${ word }</span>` );
-		const slow = state.recipes.filter( ( r ) => r.recipe.budgets && r.lastRun && r.lastRun.hash === r.hash && slowPages( r.lastRun ) ).length;
-		if ( slow ) parts.push( `<span class="rh-pill stale" title="Rehearsals whose last run had page loads over their budget">${ slow } over budget</span>` );
-		const needs = state.recipes.filter( blocked ).length;
-		if ( needs ) parts.push( `<span class="rh-pill" title="Rehearsals whose required plugins or theme are not active here">${ needs } can't run here</span>` );
-		document.getElementById( 'rh-summary' ).innerHTML = parts.join( ' ' );
 		const selected = state.recipes.filter( ( r ) => r.checked && ! blocked( r ) );
 		runButton.disabled = state.running || ! selected.length;
-		runButton.textContent = state.running ? 'Running…' : `Run selected (${ selected.length })`;
+		const expected = totalEstimate( selected );
+		runButton.textContent = state.running ? 'Running…' : `Run ${ selected.length } selected`;
+		// While running, the progress bar has the time left.
+		const estimate = document.getElementById( 'rh-estimate' );
+		estimate.textContent = ! state.running && selected.length ? `About ${ duration( expected.ms ) }` : '';
+		estimate.title = expected.guessed ? 'From the last runs; rehearsals that have never run are guessed.' : 'From the last runs.';
+		renderFrameTools();
 		const failed = failedRecipes().length;
 		runFailedButton.disabled = state.running || ! failed;
-		runFailedButton.textContent = `Run failed (${ failed })`;
+		runFailedButton.textContent = failed ? `Run ${ failed } failed` : 'Run failed';
 	}
 
 	const hasFilters = () => Object.values( state.filters ).some( Boolean );
@@ -412,7 +577,7 @@
 
 	function filterRuns( changes ) {
 		Object.assign( state.filters, changes );
-		loadRuns( false );
+		return loadRuns( false );
 	}
 
 	function renderHistory() {
@@ -441,10 +606,10 @@
 							<td><details><summary>${ esc( run.title ) } <span class="rh-muted">#${ run.id }</span></summary>${ logHtml(
 								run.log
 							) }${ errorsHtml( run.errors, `data-copy-run="${ run.id }"` ) }${ run.snapshots ?`<p class="rh-muted">${ run.snapshots } HTML snapshot(s) stored with this run.</p>` : '' }</details></td>
-							<td><span class="rh-pill ${ cls }">${ label }</span>${ slowPill( run ) }</td>
+							<td><span class="rh-pill ${ cls }">${ label }</span>${ slowPill( run ) }${ run.runner === 'playwright' ? ' <span class="rh-muted">in Playwright</span>' : '' }${ run.viewport === 'mobile' ? ' <span class="rh-muted">mobile</span>' : '' }</td>
 							<td><code>${ short( run.hash ) }</code>${ stale }</td>
 							<td>${ esc( run.build ) }</td>
-							<td><button type="button" class="button-link" data-filter-user="${ run.byId }" title="Show only runs by ${ esc( run.by ) }">${ esc( run.by ) }</button>${ run.role ? ` <span class="rh-muted">as ${ esc( run.role ) }</span>` : '' }</td>
+							<td><button type="button" class="button-link" data-filter-user="${ run.byId }" title="Show only runs by ${ esc( run.by ) }">${ esc( run.by ) }</button>${ run.role ? ` <span class="rh-muted">as ${ esc( run.role ) }</span>` : '' }${ run.ref ? ` <span class="rh-muted">ref ${ esc( run.ref ) }</span>` : '' }</td>
 						</tr>`;
 					} )
 					.join( '' ) }</tbody>
@@ -490,10 +655,12 @@
 		return `<details class="rh-help"><summary>What can a rehearsal do?</summary>
 			<p><b>Steps:</b> ${ data.steps.map( ( s ) => `<code>${ s }</code>` ).join( ' ' ) }</p>
 			<p><b><code>expect</code> matchers</b> (plus optional <code>"not": true</code>): ${ data.matchers.map( ( m ) => `<code>${ m }</code>` ).join( ' ' ) }</p>
+			<p><b><code>dialog</code></b> answers the next alert, confirm or prompt: <code>{ "dialog": "accept", "value": "prompt text" }</code> or <code>{ "dialog": "dismiss" }</code>. Put it before the step that opens the dialog. Without one, dialogs are dismissed.</p>
 			<p><b>Any step</b> takes <code>"optional": true</code> and <code>"timeout"</code> in ms. <code>{{run}}</code> becomes a value unique to each run.</p>
-			<p><b><code>"requires"</code></b> lists plugin slugs (folder names, or text domains) that must be active, such as <code>["jetpack"]</code>. Without them the rehearsal is shown but can't run.</p>
+			<p><b><code>"requires"</code></b> lists plugin slugs (folder names, or text domains) that must be active, such as <code>["jetpack"]</code>, or <code>["jetpack or jetpack-premium-analytics"]</code> when any one will do. Without them the rehearsal is shown but can't run.</p>
 			<p><b><code>"theme"</code></b> names the theme that must be active (or one of a list), such as <code>"twentytwentyfour"</code>; a child of it counts.</p>
 			<p><b><code>"role"</code></b> runs the rehearsal as a test user with that role, such as <code>"editor"</code> (created as <code>rehearsal-editor</code> the first time). Without it, it runs as you.</p>
+			<p><b><code>"viewport"</code></b> pins the rehearsal to <code>"desktop"</code> or <code>"mobile"</code>, for steps that only work at one size (a button that moves into a menu on phones, say). It then runs at that size whatever the Desktop / Mobile switch says.</p>
 			<p><b><code>"format"</code></b> is the rehearsal format it was written in, added when it's saved. A rehearsal from a newer version of Rehearsal than this site's still runs, with a warning.</p>
 			<p><b>Page loads</b> are measured only when the rehearsal sets <code>"budgets"</code>, e.g. <code>{ "lcp": 2500, "weight": 2097152 }</code>. Pages over a limit get a notice, never a failure. Keys: ${ data.budgetKeys.map( ( k ) => `<code>${ k }</code>` ).join( ' ' ) }; times in ms, CLS unitless, sizes in compressed bytes.</p>
 			<p><b>Selectors:</b> CSS, <code>text=…</code>, <code>role=…</code>, <code>:has-text("…")</code>, and <code>a &gt;&gt; b</code> to look inside <code>a</code> or inside an iframe.</p>
@@ -510,6 +677,7 @@
 				${ r.recipe.requires ? `<dt>Requires plugins</dt><dd>${ esc( r.recipe.requires.join( ', ' ) ) }</dd>` : '' }
 				${ r.recipe.theme ? `<dt>Requires theme</dt><dd>${ esc( [].concat( r.recipe.theme ).join( ' or ' ) ) }</dd>` : '' }
 				${ r.recipe.role ? `<dt>Runs as</dt><dd>${ esc( r.recipe.role ) } (test user rehearsal-${ esc( r.recipe.role ) })</dd>` : '' }
+				${ r.recipe.viewport ? `<dt>Screen size</dt><dd>${ esc( r.recipe.viewport ) } only, whatever the Desktop / Mobile switch says</dd>` : '' }
 				${ blocked( r ) ? `<dt>Can't run here</dt><dd>${ needsPill( r ) }</dd>` : '' }
 				<dt>Last result</dt><dd><span class="rh-pill ${ cls }">${ label }</span>
 					<button type="button" class="button-link" data-runs-for="${ r.id }">See all runs</button></dd>
@@ -525,6 +693,8 @@
 					<button type="button" class="button-link" data-copy-raw title="The steps as JSON. For scripts, the link plus &amp;format=json returns the same.">JSON</button>
 					<span aria-hidden="true">·</span>
 					<button type="button" class="button-link" data-copy-pw title="A standalone .spec.ts file">Playwright test</button>
+					<span aria-hidden="true">·</span>
+					<button type="button" class="button-link" data-copy-run-url title="Opening it runs this rehearsal straight away. Add &amp;ref=<label> to find the run again.">Run link</button>
 				</div>
 				<p class="rh-muted">Anyone with the link can view and install this rehearsal. Copies use the saved version.</p>
 			</div>`
@@ -546,48 +716,25 @@
 		modal.dataset.recipe = r ? r.id : '';
 	}
 
-	const RESULT_WORDS = { pass: 'Passed', fail: 'Failed', queued: 'Needs Playwright (not run)' };
-
 	function recipeJson( r ) {
 		return JSON.stringify( r.recipe, null, 2 );
 	}
 
-	// For a PR description: a summary that reads well on GitHub, with the recipe folded away below it.
-	function recipeMarkdown( r ) {
-		const steps = r.recipe.steps.length;
-		const facts = [
-			`Rehearsal \`${ short( r.hash ) }\``,
-			`${ steps } step${ steps === 1 ? '' : 's' }`,
-			r.recipe.covers ? `covers ${ r.recipe.covers.map( ( c ) => `\`${ c }\`` ).join( ', ' ) }` : 'manual only',
-		];
-		const last =
-			r.lastRun && r.lastRun.hash === r.hash
-				? `Last run: **${ RESULT_WORDS[ r.lastRun.status ] || r.lastRun.status }** on ${ r.lastRun.build }, run #${ r.lastRun.id }, ${ r.lastRun.date.slice( 0, 10 ) }.`
-				: 'Not run since its last change.';
-		return [
-			'<!-- rehearsal v1 -->',
-			`#### Rehearsal: ${ r.title }`,
-			'',
-			`${ facts.join( ' · ' ) }  `,
-			`${ last }  `,
-			`[View or install this rehearsal](${ r.shareUrl }) · [JSON](${ r.shareUrl }&format=json) · [Playwright test](${ r.shareUrl }&format=playwright) (links work while ${ new URL( data.homeUrl ).host } exists)`,
-			'',
-			'<details>',
-			'<summary>Rehearsal JSON</summary>',
-			'',
-			'```json',
-			recipeJson( r ),
-			'```',
-			'',
-			'</details>',
-		].join( '\n' );
-	}
-
 	function showRunsFor( changes ) {
 		if ( modal.open ) modal.close();
-		filterRuns( changes );
 		document.getElementById( 'rh-runs-heading' ).scrollIntoView( { behavior: 'smooth' } );
+		return filterRuns( changes );
 	}
+
+	// #run-<id> in the URL shows that run in Recent runs with its log open, so a run's result can be linked to.
+	async function showLinkedRun() {
+		const m = window.location.hash.match( /^#run-(\d+)$/ );
+		if ( ! m ) return;
+		await showRunsFor( { search: '#' + m[ 1 ], recipe: '', status: '', user: '' } );
+		const details = document.querySelector( '#rh-history details' );
+		if ( details ) details.open = true;
+	}
+	window.addEventListener( 'hashchange', showLinkedRun );
 
 	function upsertRecipe( saved ) {
 		const existing = state.recipes.find( ( r ) => r.id === saved.id );
@@ -711,6 +858,7 @@
 					<dt>Requires plugins</dt><dd>${ p.recipe.requires ? esc( p.recipe.requires.join( ', ' ) ) : 'None' }</dd>
 					<dt>Requires theme</dt><dd>${ p.recipe.theme ? esc( [].concat( p.recipe.theme ).join( ' or ' ) ) : 'Any' }</dd>
 					<dt>Runs as</dt><dd>${ p.recipe.role ? esc( p.recipe.role ) : 'you (the logged-in admin)' }</dd>
+					<dt>Screen size</dt><dd>${ p.recipe.viewport ? `${ esc( p.recipe.viewport ) } only` : 'Any' }</dd>
 					<dt>Format</dt><dd>${ p.format }${ p.shared_by ? ` (shared by a site running Rehearsal ${ esc( p.shared_by ) })` : '' }</dd>
 				</dl>
 				${ p.missing && p.missing.length ? `<p class="rh-error">This site is missing what it needs: ${ esc( p.missing.map( ( m ) => ( m.kind === 'role' ? `the "${ m.name }" role` : `${ m.kind === 'theme' ? 'theme ' : '' }${ m.name } (${ m.state === 'inactive' ? 'not active' : 'not installed' })` ) ).join( ', ' ) ) }. You can install it, but it won't run until they are active.</p>` : '' }
@@ -762,7 +910,9 @@
 		if ( t.matches( '[data-copy-share]' ) ) copy( modal.querySelector( '#rh-m-share' ).value, t );
 		if ( t.matches( '[data-copy-cmd]' ) ) copy( t.previousElementSibling.textContent, t );
 		const current = state.recipes.find( ( r ) => r.id === id );
-		if ( t.matches( '[data-copy-gh]' ) ) copy( recipeMarkdown( current ), t );
+		// Built by the server, the same block as &format=github and wp rehearsal block.
+		if ( t.matches( '[data-copy-gh]' ) ) copyFetched( `${ current.shareUrl }&format=github`, t );
+		if ( t.matches( '[data-copy-run-url]' ) ) copy( current.runUrl, t );
 		if ( t.matches( '[data-copy-raw]' ) ) copy( recipeJson( current ), t );
 		if ( t.matches( '[data-copy-pw]' ) ) copyFetched( `${ current.shareUrl }&format=playwright`, t );
 		if ( t.matches( '[data-runs-for]' ) ) showRunsFor( { recipe: t.dataset.runsFor } );
@@ -1011,6 +1161,8 @@
 			.slice( from )
 			.forEach( ( e ) => run.errors.push( { page: win.location.pathname + win.location.search, msg: e.msg, source: e.source } ) );
 		win.__rehearsalSeen = win.__rehearsal.errors.length;
+		( win.__rehearsal.dialogs || [] ).slice( win.__rehearsalDialogsSeen || 0 ).forEach( ( d ) => run.dialogs.push( d ) );
+		win.__rehearsalDialogsSeen = ( win.__rehearsal.dialogs || [] ).length;
 		// One metrics object per document (the frame keeps its window across navigations); it keeps updating until the recorder freezes it after load.
 		const m = win.__rehearsal.metrics && win.__rehearsal.metrics();
 		if ( m && run.pages ) {
@@ -1130,7 +1282,20 @@
 			return `fill ${ step.fill } = “${ step.value }”`;
 		}
 		if ( 'click' in step ) {
-			const el = await until( run, () => find( onSiteDoc(), step.click ), step.click, timeout );
+			// Like Playwright, wait for the element to be enabled too: a save button often is only once the form is ready.
+			let disabled = false;
+			const el = await until(
+				run,
+				() => {
+					const found = find( onSiteDoc(), step.click );
+					disabled = !! found && isDisabled( found );
+					return ! disabled && found;
+				},
+				step.click,
+				timeout
+			).catch( ( e ) => {
+				throw e.timeout && disabled ? new Error( `${ e.message } to be enabled (it stayed disabled)` ) : e;
+			} );
 			const link = el.closest( 'a[target="_blank"][href]' );
 			if ( link ) {
 				// A new tab would escape the runner, so load the link in the frame like Playwright following a popup.
@@ -1232,6 +1397,11 @@
 			run.snapshots.push( { selector: step.snapshot, html: el.outerHTML.slice( 0, 100000 ) } );
 			return `snapshot ${ step.snapshot } (${ Math.round( el.outerHTML.length / 1024 ) } KB)`;
 		}
+		if ( 'dialog' in step ) {
+			// The frame's recorder answers the next alert, confirm or prompt this way, like Playwright's page.once( 'dialog' ).
+			window.__rehearsalDialog = { action: step.dialog, value: step.value };
+			return `dialog: ${ step.dialog } the next one`;
+		}
 		if ( 'screenshot' in step ) {
 			throw new Error( 'The browser cannot take screenshots. Add "needs": "playwright" to this rehearsal.' );
 		}
@@ -1254,21 +1424,32 @@
 	function ignoreEarlierErrors() {
 		try {
 			const win = frame.contentWindow;
-			if ( win && win.__rehearsal ) win.__rehearsalSeen = win.__rehearsal.errors.length;
+			if ( win && win.__rehearsal ) {
+				win.__rehearsalSeen = win.__rehearsal.errors.length;
+				win.__rehearsalDialogsSeen = ( win.__rehearsal.dialogs || [] ).length;
+			}
 		} catch ( e ) {}
 	}
 
-	async function runRecipe( r ) {
+	async function runRecipe( r, ref ) {
 		// Saving an edit mid-run updates r in place; the run keeps the rehearsal it started with.
 		const { id, hash, title, recipe, newer, format } = r;
+		// A rehearsal pinned to one size runs at it, whatever the switch says.
+		const view = recipe.viewport || state.viewport;
+		state.runViewport = view;
+		renderFrameTools();
 		clearRoleCookie();
 		// pageDoc starts as whatever the last rehearsal left in the frame, so it isn't measured as this run's page.
 		// Page loads are measured only for a rehearsal with its own budgets; pages: null switches it off.
 		const budget = recipe.budgets || null;
-		const run = { log: [], errors: [], snapshots: [], pages: budget ? [] : null, newPages: [], pageDoc: frameDoc() };
-		// Page loads seen while a step ran are shown under that step's log line.
+		const run = { log: [], errors: [], snapshots: [], dialogs: [], pages: budget ? [] : null, newPages: [], pageDoc: frameDoc() };
+		window.__rehearsalDialog = null;
+		// Dialogs and page loads seen while a step ran are shown on that step's log line.
 		const attachPages = ( entry ) => {
 			harvest( run );
+			run.dialogs.splice( 0 ).forEach( ( d ) => {
+				entry.msg += ` · ${ d.type } “${ d.message }” ${ d.action === 'accept' ? 'accepted' : 'dismissed' }${ d.answered ? '' : ' (no dialog step before it)' }`;
+			} );
 			if ( ! budget ) return entry;
 			if ( run.newPages.length ) entry.pages = run.newPages.splice( 0 );
 			run.pages.forEach( ( p ) => assess( p, budget ) );
@@ -1282,6 +1463,11 @@
 
 		let status = 'pass';
 		if ( newer ) run.log.push( { ok: true, msg: `Warning: ${ newerText( format ) }`, ms: 0 } );
+		if ( view === 'mobile' || recipe.viewport ) {
+			const size = VIEWPORTS[ view ];
+			const name = view === 'mobile' ? 'Mobile' : 'Desktop';
+			run.log.push( { ok: true, msg: `${ name } viewport: ${ size.width } × ${ size.height }${ recipe.viewport ? ` (this rehearsal is ${ view }-only)` : '' }`, ms: 0 } );
+		}
 		if ( recipe.needs === 'playwright' ) {
 			run.log.push( { ok: true, msg: 'Needs Playwright, so the browser did not run it. Saved as waiting for the Playwright runner.', ms: 0 } );
 			status = 'queued';
@@ -1307,6 +1493,7 @@
 			}
 			for ( const [ i, step ] of ( status === 'pass' ? steps : [] ).entries() ) {
 				document.getElementById( 'rh-frame-step' ).textContent = `${ title } · step ${ i + 1 }/${ steps.length }`;
+				progressStep( i + 1 );
 				const t0 = performance.now();
 				try {
 					const msg = await exec( run, step, step.timeout || timeout );
@@ -1326,6 +1513,7 @@
 				await sleep( STEP_PAUSE );
 			}
 			if ( run.log.length ) attachPages( run.log[ run.log.length - 1 ] );
+			window.__rehearsalDialog = null;
 			clearRoleCookie();
 		}
 
@@ -1333,7 +1521,7 @@
 			const saved = await apiFetch( {
 				path: '/rehearsal/v1/runs',
 				method: 'POST',
-				data: { recipe_id: id, recipe_hash: hash, status, log: run.log, snapshots: run.snapshots, errors: run.consoleErrors || [] },
+				data: { recipe_id: id, recipe_hash: hash, status, log: run.log, snapshots: run.snapshots, errors: run.consoleErrors || [], ref: ref || '', viewport: view },
 			} );
 			r.lastRun = saved;
 			r.live = null;
@@ -1362,7 +1550,7 @@
 	runButton.addEventListener( 'click', () => runRecipes( state.recipes.filter( ( r ) => r.checked && ! blocked( r ) ) ) );
 	runFailedButton.addEventListener( 'click', () => runRecipes( failedRecipes() ) );
 
-	async function runRecipes( picked ) {
+	async function runRecipes( picked, ref ) {
 		if ( ! picked.length || state.running ) return;
 		state.running = true;
 		// Tells the plugin which editor loads come from the runner's frame (see no_isolation_in_frame()).
@@ -1373,10 +1561,12 @@
 			r.open = false;
 		} );
 		renderRecipes();
+		startProgress( picked );
 		try {
-			for ( const r of picked ) {
+			for ( const [ i, r ] of picked.entries() ) {
+				progressAt( i );
 				try {
-					await runRecipe( r );
+					await runRecipe( r, ref );
 				} catch ( e ) {
 					// A bug in the runner must fail this rehearsal, not leave the page stuck on "Running…".
 					r.live = { status: 'unsaved', log: [], error: `The runner itself failed: ${ e.message }` };
@@ -1386,6 +1576,9 @@
 			state.running = false;
 			clearCookies();
 			document.getElementById( 'rh-frame-step' ).textContent = 'Done';
+			state.runViewport = null;
+			fitFrame();
+			finishProgress();
 			renderRecipes();
 		}
 	}
@@ -1393,6 +1586,46 @@
 	renderRecipes();
 	renderFilterOptions();
 	renderHistory();
+
+	// A run link (&run=<ids>.<key>&ref=<label>) runs its rehearsals as soon as the screen opens, for agents.
+	// The result is on #rh-app as data-run-status (running, pass, fail, queued or error) and data-run-ids.
+	async function autorun( { ids, ref, error } ) {
+		const line = document.getElementById( 'rh-autorun' );
+		const report = ( status, text, runIds = [] ) => {
+			root.dataset.runStatus = status;
+			root.dataset.runIds = runIds.join( ',' );
+			line.hidden = false;
+			line.className = `rh-autorun ${ status }`;
+			line.innerHTML = text;
+		};
+		if ( error ) return report( 'error', esc( error ) );
+		const picked = ids.map( ( id ) => state.recipes.find( ( r ) => r.id === id ) );
+		const unusable = ids.filter( ( id, i ) => ! picked[ i ] || blocked( picked[ i ] ) );
+		if ( unusable.length ) {
+			return report( 'error', esc( `Run link: rehearsal ${ unusable.join( ', ' ) } is deleted or can't run on this site, so nothing ran.` ) );
+		}
+		const count = `${ picked.length } rehearsal${ picked.length === 1 ? '' : 's' }`;
+		report( 'running', esc( `Run link: running ${ count }${ ref ? ` (ref ${ ref })` : '' }…` ) );
+		await runRecipes( picked, ref );
+		const results = picked.map( ( r ) => ( r.live ? 'error' : r.lastRun.status ) );
+		const status = [ 'error', 'fail', 'queued' ].find( ( s ) => results.includes( s ) ) || 'pass';
+		const runIds = picked.filter( ( r ) => ! r.live ).map( ( r ) => r.lastRun.id );
+		const outcome = { pass: 'all passed', fail: 'some failed', queued: 'some need Playwright', error: 'some could not be saved' }[ status ];
+		// Each run links to its result in Recent runs.
+		const saved = runIds.map( ( i ) => `<a href="#run-${ Number( i ) }">run #${ Number( i ) }</a>` ).join( ', ' ) || 'nothing';
+		report( status, `${ esc( `Run link: ran ${ count }, ${ outcome }.` ) } Saved as ${ saved }${ ref ? esc( `, ref ${ ref }` ) : '' }.`, runIds );
+	}
+
+	showLinkedRun();
+
+	if ( data.autorun ) {
+		// Drop &run= so a reload doesn't run it again.
+		const url = new URL( window.location.href );
+		url.searchParams.delete( 'run' );
+		url.searchParams.delete( 'ref' );
+		window.history.replaceState( null, '', url );
+		autorun( data.autorun );
+	}
 
 	if ( data.install ) {
 		// Drop ?install= so a reload doesn't prompt again.

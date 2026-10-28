@@ -48,6 +48,11 @@ final class Companion_Rehearsal_Playwright {
 				$expr = "$expr.locator( " . self::pw_str( $part ) . " ).or( $expr.locator( " . self::pw_str( $aria ) . ' ) )';
 				continue;
 			}
+			// Playwright's role= engine rejects pseudo-classes, so :has-text() on a role becomes a filter.
+			if ( preg_match( '/^(role=[^:]+):has-text\((["\'])(.*?)\2\)$/', $part, $m ) ) {
+				$expr .= '.locator( ' . self::pw_str( $m[1] ) . ' ).filter( { hasText: ' . self::pw_str( $m[3] ) . ' } )';
+				continue;
+			}
 			$method = $i < count( $parts ) - 1 && preg_match( '/^iframe\b/', $part ) ? 'frameLocator' : 'locator';
 			$expr  .= ".$method( " . self::pw_str( $part ) . ' )';
 		}
@@ -110,11 +115,16 @@ final class Companion_Rehearsal_Playwright {
 			' *',
 			' * Needs a logged-in session: set STORAGE_STATE to a Playwright storage state file (rehearsals with',
 			' * a role read STORAGE_STATE_<ROLE> first), and BASE_URL to the site to test.',
+			' *',
+			' * Each result is saved on the site as a run, like a run from Tools → Rehearsal, using the',
+			' * STORAGE_STATE session (an administrator\'s). REHEARSAL_REF labels the runs; REHEARSAL_REPORT=0 turns it off.',
 			' */',
-			"import { test, expect as baseExpect, type Locator" . ( $measures ? ', type Page' : '' ) . " } from '@playwright/test';",
+			"import { test, expect as baseExpect, request, type Locator, type TestInfo" . ( $measures ? ', type Page' : '' ) . " } from '@playwright/test';",
+			'',
+			'const BASE_URL = process.env.BASE_URL || ' . self::json( $site ) . ';',
 			'',
 			'test.use( {',
-			"\tbaseURL: process.env.BASE_URL || " . self::json( $site ) . ',',
+			"\tbaseURL: BASE_URL,",
 			"\tstorageState: process.env.STORAGE_STATE,",
 			'} );',
 			'',
@@ -124,12 +134,54 @@ final class Companion_Rehearsal_Playwright {
 			"\tawait ( href ? locator.page().goto( href ) : locator.click( { timeout } ) );",
 			'}',
 			'',
-			'async function optional( step: () => Promise< unknown > ) {',
-			"\ttry {",
-			"\t\tawait step();",
-			"\t} catch {",
-			"\t\t// Optional step: skipped when it doesn't apply.",
-			"\t}",
+			'// Each step is a step in the Playwright report and a line in the run saved on the site.',
+			'function rehearsal( id: number, hash: string, viewport: string ) {',
+			"\t// The error without colours or its call log, on one line: what failed, expected and received.",
+			"\tconst brief = ( e: unknown ) => String( ( e as Error )?.message ?? e ).replace( /\\x1b\\[[0-9;]*m/g, '' ).split( /\\nCall log:/ )[ 0 ].split( '\\n' ).map( ( l ) => l.trim() ).filter( Boolean ).join( ' · ' ).slice( 0, 600 );",
+			"\tlet log: { ok: boolean; msg: string; ms: number }[] = [];",
+			"\tconst errors: string[] = [];",
+			"\treturn {",
+			"\t\terrors,",
+			"\t\tstart() {",
+			"\t\t\tlog = [];",
+			"\t\t\terrors.length = 0;",
+			"\t\t},",
+			"\t\tasync step( n: number, label: string, body: () => Promise< unknown >, optional = false ) {",
+			"\t\t\tconst t0 = Date.now();",
+			"\t\t\ttry {",
+			"\t\t\t\tawait test.step( label, body );",
+			"\t\t\t\tlog.push( { ok: true, msg: label, ms: Date.now() - t0 } );",
+			"\t\t\t} catch ( e ) {",
+			"\t\t\t\t// An optional step is skipped when it doesn't apply.",
+			"\t\t\t\tlog.push( { ok: optional, msg: `\${ optional ? 'Skipped optional step' : 'Step' } \${ n }: \${ label }: \${ brief( e ) }`, ms: Date.now() - t0 } );",
+			"\t\t\t\tif ( ! optional ) throw e;",
+			"\t\t\t}",
+			"\t\t},",
+			"\t\tasync report( info: TestInfo ) {",
+			"\t\t\tif ( ! id || process.env.REHEARSAL_REPORT === '0' || info.status === 'skipped' ) return;",
+			"\t\t\tconst status = info.status === 'passed' ? 'pass' : 'fail';",
+			"\t\t\t// A timeout stops the test between log lines, so say why it ended.",
+			"\t\t\tif ( status === 'fail' && ! log.some( ( l ) => ! l.ok ) ) log.push( { ok: false, msg: brief( info.error?.message ?? `Test \${ info.status }` ), ms: 0 } );",
+			"\t\t\tconst note = ( type: string, description: string ) => info.annotations.push( { type, description } );",
+			"\t\t\tif ( ! process.env.STORAGE_STATE ) return note( 'rehearsal run not saved', 'Set STORAGE_STATE to an administrator\\'s session to save runs on the site.' );",
+			"\t\t\tconst site = await request.newContext( { baseURL: BASE_URL, storageState: process.env.STORAGE_STATE } );",
+			"\t\t\ttry {",
+			"\t\t\t\tconst nonce = await ( await site.get( 'wp-admin/admin-ajax.php?action=rest-nonce' ) ).text();",
+			"\t\t\t\tconst res = await site.post( '?rest_route=/rehearsal/v1/runs', {",
+			"\t\t\t\t\theaders: { 'X-WP-Nonce': nonce },",
+			"\t\t\t\t\tdata: { recipe_id: id, recipe_hash: hash, status, log, runner: 'playwright', viewport, ref: process.env.REHEARSAL_REF || '',",
+			"\t\t\t\t\t\terrors: status === 'fail' ? errors.map( ( msg ) => ( { msg, page: '', source: '', count: 1 } ) ) : [] },",
+			"\t\t\t\t} );",
+			"\t\t\t\tconst body = await res.json().catch( () => ( {} ) );",
+			"\t\t\t\tif ( res.ok() ) note( 'rehearsal run', `Saved as run #\${ body.id } on \${ BASE_URL }` );",
+			"\t\t\t\telse note( 'rehearsal run not saved', body.message || `HTTP \${ res.status() }` );",
+			"\t\t\t} catch ( e ) {",
+			"\t\t\t\tnote( 'rehearsal run not saved', brief( e ) );",
+			"\t\t\t} finally {",
+			"\t\t\t\tawait site.dispose();",
+			"\t\t\t}",
+			"\t\t},",
+			"\t};",
 			'}',
 			'',
 		);
@@ -219,9 +271,8 @@ final class Companion_Rehearsal_Playwright {
 		$budgets  = ! empty( $def['budgets'] );
 		$title    = self::one_line( $payload['title'] );
 		$body     = array();
-		foreach ( array_values( $def['steps'] ) as $step ) {
-			$code   = self::step( $step );
-			$body[] = empty( $step['optional'] ) ? $code : "await optional( async () => {\n\t$code\n} );";
+		foreach ( array_values( $def['steps'] ) as $i => $step ) {
+			$body[] = 'await rh.step( ' . ( $i + 1 ) . ', ' . self::pw_str( self::label( $step ) ) . ", async () => {\n\t" . self::step( $step ) . "\n}" . ( empty( $step['optional'] ) ? '' : ', true' ) . ' );';
 			if ( $budgets && ( isset( $step['goto'] ) || isset( $step['click'] ) || isset( $step['press'] ) ) ) {
 				$body[] = 'await measure();';
 			}
@@ -230,7 +281,7 @@ final class Companion_Rehearsal_Playwright {
 			$body[] = 'await measure();';
 		}
 
-		$setup = array( "test.setTimeout( " . max( 60000, count( $def['steps'] ) * $timeout + 30000 ) . ' );' );
+		$setup = array( "test.setTimeout( " . max( 60000, count( $def['steps'] ) * $timeout + 30000 ) . ' );', 'rh.start();' );
 		if ( $budgets ) {
 			$setup[] = 'const measure = await trackLoads( page, ' . self::json( (object) $def['budgets'] ) . ' );';
 		}
@@ -238,13 +289,17 @@ final class Companion_Rehearsal_Playwright {
 			$setup[] = 'const run = Date.now().toString( 36 );';
 		}
 		if ( $uses_err ) {
-			$setup[] = 'const consoleErrors: string[] = [];';
+			$setup[] = 'const consoleErrors = rh.errors;';
 			$setup[] = "// Script errors only, like the Rehearsal runner. Failed requests are the network's, so they go in the report.";
 			$setup[] = "page.on( 'console', ( m ) => m.type() === 'error' && ! m.text().startsWith( 'Failed to load resource' ) && consoleErrors.push( m.text() ) );";
 			$setup[] = "page.on( 'pageerror', ( e ) => consoleErrors.push( e.message ) );";
 			$setup[] = "page.on( 'requestfailed', ( r ) => test.info().annotations.push( { type: 'request failed', description: `\${ r.failure()?.errorText } \${ r.url() }` } ) );";
 		}
 		$use = "actionTimeout: $timeout";
+		if ( ! empty( $def['viewport'] ) ) {
+			// The browser runner's sizes for each viewport.
+			$use .= ', viewport: ' . ( 'mobile' === $def['viewport'] ? '{ width: 390, height: 844 }' : '{ width: 1280, height: 800 }' );
+		}
 		if ( ! empty( $def['role'] ) ) {
 			$use .= ', storageState: process.env.' . self::storage_env( $def['role'] ) . ' || process.env.STORAGE_STATE';
 		}
@@ -258,6 +313,8 @@ final class Companion_Rehearsal_Playwright {
 				'test.describe( ' . self::json( $title ) . ', () => {',
 				"\tconst expect = baseExpect.configure( { timeout: $timeout } );",
 				"\ttest.use( { $use } );",
+				"\tconst rh = rehearsal( " . (int) ( $payload['post_id'] ?? 0 ) . ', ' . self::json( $payload['id'] ) . ', ' . self::json( 'mobile' === ( $def['viewport'] ?? '' ) ? 'mobile' : 'desktop' ) . ' );',
+				"\ttest.afterEach( ( {}, info ) => rh.report( info ) );",
 				'',
 				"\ttest( " . self::json( 'rehearsal ' . substr( $payload['id'], 0, 7 ) ) . ', async ( { page } ) => {',
 			),
@@ -276,6 +333,29 @@ final class Companion_Rehearsal_Playwright {
 	 */
 	private static function one_line( $text ) {
 		return str_replace( array( "\r", "\n", "\u{2028}", "\u{2029}" ), ' ', (string) $text );
+	}
+
+	/**
+	 * A step's line in the report and the saved run: its action and target, like the browser runner's log.
+	 *
+	 * @param array $step Step.
+	 * @return string
+	 */
+	private static function label( array $step ) {
+		$action = (string) current( array_intersect( Companion_Rehearsal_Schema::STEPS, array_keys( $step ) ) );
+		$target = $step[ $action ];
+		$label  = is_string( $target ) ? "$action $target" : $action;
+		if ( 'expect' === $action ) {
+			$matcher = (string) current( array_intersect( Companion_Rehearsal_Schema::MATCHERS, array_keys( $step ) ) );
+			$label  .= ( empty( $step['not'] ) ? '' : ' not' ) . " $matcher" . ( is_bool( $step[ $matcher ] ) ? '' : ' ' . self::json( $step[ $matcher ] ) );
+		}
+		if ( isset( $step['value'] ) ) {
+			$label .= ' = “' . $step['value'] . '”';
+		}
+		foreach ( array( 'on', 'in' ) as $key ) {
+			$label .= isset( $step[ $key ] ) ? " $key {$step[ $key ]}" : '';
+		}
+		return self::one_line( $label );
 	}
 
 	/**
@@ -343,6 +423,10 @@ final class Companion_Rehearsal_Playwright {
 		}
 		if ( isset( $step['snapshot'] ) ) {
 			return 'await test.info().attach( ' . self::json( 'snapshot: ' . $step['snapshot'] ) . ', { body: await ' . self::pw_locator( $step['snapshot'] ) . ".evaluate( ( el ) => el.outerHTML ), contentType: 'text/html' } );";
+		}
+		if ( isset( $step['dialog'] ) ) {
+			$answer = 'accept' === $step['dialog'] ? 'd.accept(' . ( isset( $step['value'] ) ? ' ' . self::pw_str( $step['value'] ) . ' ' : '' ) . ')' : 'd.dismiss()';
+			return "page.once( 'dialog', ( d ) => $answer );";
 		}
 		if ( isset( $step['screenshot'] ) ) {
 			return 'await page.screenshot( { path: test.info().outputPath( ' . self::pw_str( $step['screenshot'] . '.png' ) . ' ), fullPage: true } );';

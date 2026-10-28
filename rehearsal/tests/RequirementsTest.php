@@ -68,6 +68,9 @@ class RequirementsTest extends TestCase {
 			'any one theme of a list'       => array( array( 'theme' => array( 'astra', 'twentytwentyfour' ) ), '' ),
 			'existing role'                 => array( array( 'role' => 'editor' ), '' ),
 			'unknown role'                  => array( array( 'role' => 'shop_manager' ), 'role:missing' ),
+			'either of two, one active'     => array( array( 'requires' => array( 'woocommerce or jetpack' ) ), '' ),
+			'either of two, one inactive'   => array( array( 'requires' => array( 'woocommerce or akismet' ) ), 'plugin:inactive' ),
+			'either of two, neither there'  => array( array( 'requires' => array( 'woocommerce or bbpress' ) ), 'plugin:missing' ),
 			'several unmet at once'         => array( array( 'requires' => array( 'akismet', 'woocommerce' ), 'theme' => 'astra', 'role' => 'shop_manager' ), 'plugin:inactive,plugin:missing,role:missing,theme:missing' ),
 		);
 	}

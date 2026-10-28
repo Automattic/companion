@@ -37,11 +37,13 @@ final class Companion_Rehearsal_Share {
 	 * @param WP_Post $post Recipe post.
 	 * @return array
 	 */
-	private static function share_payload( $post ) {
+	public static function share_payload( $post ) {
 		return array(
 			'format' => 'rehearsal',
-			'title'  => get_the_title( $post ),
+			'title'  => $post->post_title, // Plain text, not get_the_title()'s HTML; see Store::recipe_for_js().
 			'id'     => Companion_Rehearsal_Schema::hash( $post->post_content ),
+			// This site's number for it, so a Playwright test can save its result here as a run.
+			'post_id' => $post->ID,
 			'definition' => json_decode( $post->post_content, true ),
 			'source' => self::share_url( $post->ID ),
 			'site'   => home_url( '/' ),
@@ -86,6 +88,12 @@ final class Companion_Rehearsal_Share {
 			header( 'Access-Control-Allow-Origin: *' );
 			wp_send_json( $payload );
 		}
+		if ( 'github' === $format ) {
+			header( 'Access-Control-Allow-Origin: *' );
+			header( 'Content-Type: text/plain; charset=utf-8' );
+			echo self::to_github( $payload, Companion_Rehearsal_Runs::latest( $post->ID ) ); // phpcs:ignore WordPress.Security.EscapingOutput.OutputNotEscaped -- Plain-text Markdown.
+			exit;
+		}
 		if ( 'playwright' === $format ) {
 			header( 'Access-Control-Allow-Origin: *' );
 			header( 'Content-Type: text/plain; charset=utf-8' );
@@ -95,6 +103,102 @@ final class Companion_Rehearsal_Share {
 		}
 		self::render_share_page( $payload );
 		exit;
+	}
+
+	/**
+	 * For a PR description: a summary that reads well on GitHub, with the rehearsal JSON folded away.
+	 * "Copy as GitHub", `&format=github` and `wp rehearsal block` all use this, so they can't drift apart.
+	 *
+	 * @param array      $payload  Share payload.
+	 * @param array|null $last_run The rehearsal's latest run, as Runs::run_for_js() shapes it.
+	 * @return string Markdown.
+	 */
+	public static function to_github( array $payload, $last_run ) {
+		$def    = $payload['definition'];
+		$steps  = count( $def['steps'] );
+		$facts  = array(
+			'Rehearsal `' . substr( $payload['id'], 0, 7 ) . '`',
+			$steps . ( 1 === $steps ? ' step' : ' steps' ),
+			empty( $def['covers'] ) ? 'manual only' : 'covers ' . implode( ', ', array_map( static fn( $c ) => "`$c`", $def['covers'] ) ),
+		);
+		$words  = array(
+			'pass'   => 'Passed',
+			'fail'   => 'Failed',
+			'queued' => 'Needs Playwright (not run)',
+		);
+		$last   = $last_run && $last_run['hash'] === $payload['id']
+			? sprintf(
+				'Last run: **%s**%s on %s, run #%d, %s.',
+				$words[ $last_run['status'] ] ?? $last_run['status'],
+				'playwright' === $last_run['runner'] ? ' in Playwright' : '',
+				$last_run['build'],
+				$last_run['id'],
+				substr( $last_run['date'], 0, 10 )
+			)
+			: 'Not run since its last change.';
+		$source = $payload['source'];
+		return implode(
+			"\n",
+			array(
+				'<!-- rehearsal v1 -->',
+				'#### Rehearsal: ' . $payload['title'],
+				'',
+				implode( ' · ', $facts ) . '  ',
+				$last . '  ',
+				sprintf(
+					'[View or install this rehearsal](%1$s) · [JSON](%1$s&format=json) · [Playwright test](%1$s&format=playwright) (links work while %2$s exists)',
+					$source,
+					wp_parse_url( $payload['site'], PHP_URL_HOST )
+				),
+				'',
+				'<details>',
+				'<summary>Rehearsal JSON</summary>',
+				'',
+				'```json',
+				wp_json_encode( $def, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE ),
+				'```',
+				'',
+				'</details>',
+			)
+		);
+	}
+
+	/**
+	 * A link that opens Tools → Rehearsal and runs these rehearsals straight away, for agents and
+	 * scripts. Signed, so another site can't make an admin's browser run a rehearsal by linking here.
+	 *
+	 * @param int[]  $ids Rehearsal IDs.
+	 * @param string $ref Label saved with each run, to find the runs again.
+	 * @return string
+	 */
+	public static function run_url( array $ids, $ref = '' ) {
+		$ids = implode( '-', array_map( 'intval', $ids ) );
+		$url = add_query_arg( 'run', $ids . '.' . self::run_key( $ids ), admin_url( 'tools.php?page=' . Companion_Rehearsal::SLUG ) );
+		return '' === $ref ? $url : add_query_arg( 'ref', $ref, $url );
+	}
+
+	/**
+	 * The rehearsal IDs in a run token ("<id>-<id>.<key>"), or none when the key doesn't match the list.
+	 *
+	 * @param string $token Value of the &run= query arg.
+	 * @return int[]
+	 */
+	public static function ids_from_run_token( $token ) {
+		list( $ids, $key ) = array_pad( explode( '.', (string) $token, 2 ), 2, '' );
+		if ( ! preg_match( '/^\d+(-\d+)*$/', $ids ) || ! hash_equals( self::run_key( $ids ), $key ) ) {
+			return array();
+		}
+		return array_map( 'intval', explode( '-', $ids ) );
+	}
+
+	/**
+	 * Key for a run link. Not the bundle key: a Playwright link handed to CI must not double as a run link.
+	 *
+	 * @param string $ids IDs joined with "-".
+	 * @return string
+	 */
+	private static function run_key( $ids ) {
+		return substr( hash_hmac( 'sha256', 'rehearsal-run|' . $ids, wp_salt( 'auth' ) ), 0, 20 );
 	}
 
 	/**
@@ -178,7 +282,7 @@ h1 { font-size: 22px; margin: 0 0 4px; } .muted { color: #646970; font-size: 13p
 dl { display: grid; grid-template-columns: max-content 1fr; gap: 4px 16px; margin: 12px 0 0; font-size: 14px; } dt { color: #646970; } dd { margin: 0; overflow-wrap: anywhere; }
 code, pre { font: 12.5px/1.5 Menlo, Consolas, monospace; } pre { background: #f6f7f7; border: 1px solid #dcdcde; padding: 12px; overflow-x: auto; max-block-size: 420px; }
 form { display: flex; flex-wrap: wrap; gap: 8px; margin-block-start: 8px; } input { flex: 1 1 260px; padding: 8px 10px; font: inherit; border: 1px solid #8c8f94; border-radius: 4px; }
-button { padding: 8px 16px; font: inherit; font-weight: 600; color: #fff; background: #2271b1; border: 0; border-radius: 4px; cursor: pointer; }
+button { padding: 8px 16px; font: inherit; font-weight: 600; color: #fff; background: #3858e9; border: 0; border-radius: 4px; cursor: pointer; }
 </style></head>
 <body><main>
 	<div class="card">
@@ -191,9 +295,10 @@ button { padding: 8px 16px; font: inherit; font-weight: 600; color: #fff; backgr
 			<dt>Requires plugins</dt><dd><?php echo esc_html( empty( $payload['definition']['requires'] ) ? 'None' : implode( ', ', $payload['definition']['requires'] ) ); ?></dd>
 			<dt>Requires theme</dt><dd><?php echo esc_html( empty( $payload['definition']['theme'] ) ? 'Any' : implode( ' or ', (array) $payload['definition']['theme'] ) ); ?></dd>
 			<dt>Runs as</dt><dd><?php echo esc_html( empty( $payload['definition']['role'] ) ? 'The logged-in admin' : $payload['definition']['role'] ); ?></dd>
+			<dt>Screen size</dt><dd><?php echo esc_html( empty( $payload['definition']['viewport'] ) ? 'Any' : ucfirst( $payload['definition']['viewport'] ) . ' only' ); ?></dd>
 			<dt>Format</dt><dd><?php echo (int) Companion_Rehearsal_Schema::format_of( $payload['definition'] ); ?> (shared by a site running Rehearsal <?php echo esc_html( $payload['shared_by'] ); ?>)</dd>
 			<dt>Shared from</dt><dd><?php echo esc_html( $payload['site'] ); ?> (<?php echo esc_html( $payload['build'] ); ?>)</dd>
-			<dt>For CI</dt><dd><a href="<?php echo esc_url( $json_url ); ?>">JSON</a> · <a href="<?php echo esc_url( add_query_arg( 'format', 'playwright', $payload['source'] ) ); ?>">Playwright test</a></dd>
+			<dt>For CI</dt><dd><a href="<?php echo esc_url( $json_url ); ?>">JSON</a> · <a href="<?php echo esc_url( add_query_arg( 'format', 'playwright', $payload['source'] ) ); ?>">Playwright test</a> · <a href="<?php echo esc_url( add_query_arg( 'format', 'github', $payload['source'] ) ); ?>">GitHub block</a></dd>
 		</dl>
 	</div>
 	<div class="card">

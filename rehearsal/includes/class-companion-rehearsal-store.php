@@ -73,17 +73,10 @@ final class Companion_Rehearsal_Store {
 		if ( Companion_Rehearsal_Schema::validate( $recipe ) ) {
 			return null;
 		}
-		$last = get_posts(
-			array(
-				'post_type'      => Companion_Rehearsal::RUN,
-				'post_status'    => 'publish',
-				'post_parent'    => $post->ID,
-				'posts_per_page' => 1,
-			)
-		);
 		return array(
 			'id'       => $post->ID,
-			'title'    => get_the_title( $post ),
+			// The raw title: get_the_title() texturizes it into HTML entities, and every place that shows it escapes it.
+			'title'    => $post->post_title,
 			'hash'     => Companion_Rehearsal_Schema::hash( $post->post_content ),
 			'recipe'   => $recipe,
 			'shareUrl' => Companion_Rehearsal_Share::share_url( $post->ID ),
@@ -91,8 +84,34 @@ final class Companion_Rehearsal_Store {
 			'missing'  => Companion_Rehearsal_Requirements::missing_requirements( $recipe ),
 			'format'   => Companion_Rehearsal_Schema::format_of( $recipe ),
 			'newer'    => Companion_Rehearsal_Schema::is_newer( $recipe ),
-			'lastRun'  => $last ? Companion_Rehearsal_Runs::run_for_js( $last[0] ) : null,
+			'runUrl'   => Companion_Rehearsal_Share::run_url( array( $post->ID ) ),
+			'lastRun'  => Companion_Rehearsal_Runs::latest( $post->ID ),
 		);
+	}
+
+	/**
+	 * A rehearsal with this title and these steps, so saving the same one twice doesn't make a copy.
+	 *
+	 * @param string $title  Title.
+	 * @param array  $recipe Validated rehearsal.
+	 * @return int Its ID, or 0.
+	 */
+	public static function find_same( $title, array $recipe ) {
+		$hash = Companion_Rehearsal_Schema::hash( Companion_Rehearsal_Schema::canonical( $recipe ) );
+		$same = get_posts(
+			array(
+				'post_type'      => Companion_Rehearsal::RECIPE,
+				'post_status'    => 'publish',
+				'title'          => $title,
+				'posts_per_page' => 20,
+			)
+		);
+		foreach ( $same as $post ) {
+			if ( Companion_Rehearsal_Schema::hash( $post->post_content ) === $hash ) {
+				return $post->ID;
+			}
+		}
+		return 0;
 	}
 
 	/**
