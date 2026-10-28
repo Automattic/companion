@@ -1,3 +1,5 @@
+/* One accent, the admin theme's: the same blue as WordPress's own buttons and links. */
+.rh { --rh-accent: var(--wp-admin-theme-color, #3858e9); }
 .rh-build { color: #50575e; }
 .rh-empty { max-width: 640px; background: #fff; border: 1px solid #c3c4c7; padding: 4px 16px 16px; }
 .rh-toolbar { display: flex; flex-wrap: wrap; gap: 12px 20px; align-items: center; margin-block: 16px 12px; }
@@ -9,11 +11,11 @@
 .rh-pill.pass { background: #edfaef; color: #00701a; }
 .rh-pill.fail { background: #fcf0f1; color: #b32d2e; }
 .rh-pill.stale { background: #fcf9e8; color: #8a6100; }
-.rh-pill.queued { background: #f0edfc; color: #5b3fc2; }
-.rh-pill.running { background: #2271b1; color: #fff; }
+.rh-pill.queued { background: #fff; color: #50575e; box-shadow: inset 0 0 0 1px #c3c4c7; }
+.rh-pill.running { background: var(--rh-accent); color: #fff; }
 .rh-error { color: #b32d2e; margin: 6px 0; }
-.rh-autorun { margin: 8px 0; padding: 6px 10px; border-inline-start: 4px solid #2271b1; background: #fff; }
-.rh-autorun.pass { border-color: #00a32a; } .rh-autorun.fail, .rh-autorun.error { border-color: #d63638; } .rh-autorun.queued { border-color: #5b3fc2; }
+.rh-autorun { margin: 8px 0; padding: 6px 10px; border-inline-start: 4px solid var(--rh-accent); background: #fff; }
+.rh-autorun.pass { border-color: #00a32a; } .rh-autorun.fail, .rh-autorun.error { border-color: #d63638; } .rh-autorun.queued { border-color: #8c8f94; }
 .rh-log { margin: 6px 0 4px; padding: 0; list-style: none; font: 12px/1.6 Menlo, Consolas, monospace; }
 .rh-log li { display: grid; grid-template-columns: 16px minmax(0, 1fr) auto; gap: 8px; }
 .rh-log li.ok > span:first-child { color: #00a32a; }
@@ -45,7 +47,7 @@
 .rh-share-as { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px; font-size: 13px; color: #50575e; }
 .rh-share .rh-muted { margin: 0; }
 .rh-help { font-size: 13px; color: #3c434a; }
-.rh-help summary { cursor: pointer; color: #2271b1; }
+.rh-help summary { cursor: pointer; color: var(--rh-accent); }
 .rh-help p { margin: 6px 0; }
 .rh-modal-note { margin: 0; padding: 8px 10px; background: #edfaef; border-inline-start: 4px solid #00a32a; }
 .rh-m-pre { max-block-size: 260px; overflow: auto; background: #f6f7f7; padding: 10px; font: 12px/1.5 Menlo, Consolas, monospace; }
@@ -100,9 +102,9 @@
 /* Progress of a run, kept in view below the admin bar. */
 .rh-progress { position: sticky; inset-block-start: 32px; z-index: 10; margin-block: 12px 0; padding: 8px 12px 0; background: #fff; border: 1px solid #c3c4c7; }
 .rh-progress-text { display: flex; justify-content: space-between; gap: 12px; font-size: 13px; }
-.rh-progress-text button { font-size: 18px; line-height: 1; text-decoration: none; }
+.rh .rh-progress-text .button-link { font-size: 18px; line-height: 1; text-decoration: none; color: #50575e; }
 .rh-progress-track { block-size: 4px; margin: 8px -12px 0; background: #f0f0f1; }
-.rh-progress-track span { display: block; block-size: 100%; inline-size: 0; background: #2271b1; transition: inline-size 0.3s; }
+.rh-progress-track span { display: block; block-size: 100%; inline-size: 0; background: var(--rh-accent); transition: inline-size 0.3s; }
 .rh-progress.pass .rh-progress-track span { background: #00a32a; }
 .rh-progress.fail .rh-progress-track span { background: #d63638; }
 @media (max-width: 782px) { .rh-progress { inset-block-start: 46px; } }
@@ -112,7 +114,7 @@
 .rh-segmented .button { border-radius: 0; margin: 0; }
 .rh-segmented .button:first-child { border-start-start-radius: 3px; border-end-start-radius: 3px; }
 .rh-segmented .button:last-child { border-start-end-radius: 3px; border-end-end-radius: 3px; margin-inline-start: -1px; }
-.rh-frame-tools .button[aria-pressed="true"] { background: #2271b1; border-color: #2271b1; color: #fff; }
+.rh-frame-tools .button[aria-pressed="true"] { background: var(--rh-accent); border-color: var(--rh-accent); color: #fff; }
 /* A phone-sized page sits centred on a grey surround. */
 .rh-frame-viewport.is-mobile { background: #f0f0f1; }
 .rh-frame-viewport.is-mobile iframe { background: #fff; box-shadow: 0 0 0 1px #c3c4c7; }

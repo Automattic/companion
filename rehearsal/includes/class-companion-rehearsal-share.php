@@ -282,7 +282,7 @@ h1 { font-size: 22px; margin: 0 0 4px; } .muted { color: #646970; font-size: 13p
 dl { display: grid; grid-template-columns: max-content 1fr; gap: 4px 16px; margin: 12px 0 0; font-size: 14px; } dt { color: #646970; } dd { margin: 0; overflow-wrap: anywhere; }
 code, pre { font: 12.5px/1.5 Menlo, Consolas, monospace; } pre { background: #f6f7f7; border: 1px solid #dcdcde; padding: 12px; overflow-x: auto; max-block-size: 420px; }
 form { display: flex; flex-wrap: wrap; gap: 8px; margin-block-start: 8px; } input { flex: 1 1 260px; padding: 8px 10px; font: inherit; border: 1px solid #8c8f94; border-radius: 4px; }
-button { padding: 8px 16px; font: inherit; font-weight: 600; color: #fff; background: #2271b1; border: 0; border-radius: 4px; cursor: pointer; }
+button { padding: 8px 16px; font: inherit; font-weight: 600; color: #fff; background: #3858e9; border: 0; border-radius: 4px; cursor: pointer; }
 </style></head>
 <body><main>
 	<div class="card">
