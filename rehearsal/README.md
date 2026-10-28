@@ -21,6 +21,22 @@ latest result failed.
 
 ![A run in progress: the frame shows the page the current step is on](screenshots/running.png)
 
+While a run goes, a bar at the top shows which rehearsal and step it is on, the time so far, and about
+how long is left. **Run selected** shows the estimate before you start. Estimates come from each
+rehearsal's last run: the whole run when it passed, its pace per step when it stopped early (failed
+steps don't count, since they mostly wait out a timeout), and a guess from the other rehearsals when it
+has never run.
+
+Above the frame:
+
+- **Desktop / Mobile** sets the size pages render at. Desktop is at least 1280 × 800, scaled to fit.
+  Mobile is a phone's 390 × 844, so pages use their mobile layout. Only the size changes: the browser
+  still says it is a desktop browser, so server-side checks such as `wp_is_mobile()` see desktop. A run
+  keeps the size it started with; mobile runs say so in their log and in **Recent runs**.
+- **Maximize** gives the frame the full width, above the list. **Restore** puts it back.
+
+Both are remembered in your browser.
+
 ## Writing a rehearsal
 
 Press **Add rehearsal**, give it a title, and write its steps:

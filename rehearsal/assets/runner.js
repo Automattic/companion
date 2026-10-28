@@ -34,6 +34,10 @@
 	const short = ( hash ) => String( hash || '' ).slice( 0, 7 );
 
 	root.innerHTML = `
+		<div class="rh-progress" id="rh-progress" role="status" hidden>
+			<div class="rh-progress-text"><span id="rh-progress-text"></span><button type="button" class="button-link" id="rh-progress-close" hidden aria-label="Hide progress">×</button></div>
+			<div class="rh-progress-track" aria-hidden="true"><span id="rh-progress-fill"></span></div>
+		</div>
 		<div class="rh-toolbar">
 			<button type="button" class="button button-primary" id="rh-run">Run selected</button>
 			<button type="button" class="button" id="rh-run-failed">Run failed</button>
@@ -47,6 +51,13 @@
 		<div class="rh-layout">
 			<div class="rh-main" id="rh-recipes"></div>
 			<aside class="rh-frame" aria-label="Test frame">
+				<div class="rh-frame-tools">
+					<span class="rh-segmented" role="group" aria-label="Viewport">
+						<button type="button" class="button button-small" data-viewport="desktop" title="Run at desktop width, scaled to fit">Desktop</button>
+						<button type="button" class="button button-small" data-viewport="mobile" title="Run at phone width (390 × 844), so pages use their mobile layout">Mobile</button>
+					</span>
+					<button type="button" class="button button-small" id="rh-maximize" aria-pressed="false">Maximize</button>
+				</div>
 				<div class="rh-frame-bar"><span id="rh-frame-url">Waiting for a run</span><span id="rh-frame-step"></span></div>
 				<div class="rh-frame-viewport" id="rh-frame-viewport">
 					<iframe name="rehearsal" id="rh-frame" title="Test frame the runner drives" src="about:blank"></iframe>
@@ -74,16 +85,32 @@
 	const runButton = document.getElementById( 'rh-run' );
 	const runFailedButton = document.getElementById( 'rh-run-failed' );
 
-	// Pages render at least desktop width and are scaled to fit, so a narrow column doesn't trigger mobile layouts.
-	const MIN_FRAME_WIDTH = 1280;
-	const FRAME_HEIGHT = 800;
-	frame.style.height = FRAME_HEIGHT + 'px';
+	// Desktop pages render at least 1280 px wide and are scaled to fit, so a narrow column doesn't trigger
+	// mobile layouts. Mobile renders at a phone's size, so pages use their mobile layout (CSS only: the
+	// browser's user agent stays the same, so wp_is_mobile() still says desktop).
+	const VIEWPORTS = {
+		desktop: { width: 1280, height: 800, fill: true },
+		mobile: { width: 390, height: 844, fill: false },
+	};
+	// Per-browser conveniences; the page works without them.
+	const remember = ( key, value ) => {
+		try {
+			if ( value === undefined ) return window.localStorage.getItem( 'rehearsal-' + key );
+			window.localStorage.setItem( 'rehearsal-' + key, value );
+		} catch ( e ) {}
+		return null;
+	};
+	state.viewport = remember( 'viewport' ) === 'mobile' ? 'mobile' : 'desktop';
 	const fitFrame = () => {
-		const width = Math.max( MIN_FRAME_WIDTH, viewport.clientWidth );
-		const scale = viewport.clientWidth / width;
+		const size = VIEWPORTS[ state.viewport ];
+		const width = size.fill ? Math.max( size.width, viewport.clientWidth ) : size.width;
+		const scale = Math.min( 1, viewport.clientWidth / width );
 		frame.style.width = width + 'px';
+		frame.style.height = size.height + 'px';
 		frame.style.transform = `scale(${ scale })`;
-		viewport.style.height = FRAME_HEIGHT * scale + 'px';
+		frame.style.marginInlineStart = Math.max( 0, ( viewport.clientWidth - width * scale ) / 2 ) + 'px';
+		viewport.style.height = size.height * scale + 'px';
+		viewport.classList.toggle( 'is-mobile', ! size.fill );
 	};
 	new ResizeObserver( fitFrame ).observe( viewport );
 	fitFrame();
@@ -93,9 +120,46 @@
 		viewport.removeAttribute( 'style' );
 		frame.removeAttribute( 'style' );
 		viewport.scrollTo( 0, 0 );
-		frame.style.height = FRAME_HEIGHT + 'px';
 		fitFrame();
 	}
+
+	function renderFrameTools() {
+		root.querySelectorAll( '[data-viewport]' ).forEach( ( b ) => {
+			b.setAttribute( 'aria-pressed', String( b.dataset.viewport === state.viewport ) );
+			// A run keeps the size it started with, so its steps all see the same layout.
+			b.disabled = state.running;
+		} );
+		const maxed = root.querySelector( '.rh-layout' ).classList.contains( 'is-maximized' );
+		const max = document.getElementById( 'rh-maximize' );
+		max.setAttribute( 'aria-pressed', String( maxed ) );
+		max.textContent = maxed ? 'Restore' : 'Maximize';
+	}
+
+	function setViewport( name ) {
+		state.viewport = name;
+		remember( 'viewport', name );
+		fitFrame();
+		renderFrameTools();
+	}
+
+	// Maximized, the frame takes the full width above the list.
+	function setMaximized( on ) {
+		root.querySelector( '.rh-layout' ).classList.toggle( 'is-maximized', on );
+		remember( 'maximized', on ? '1' : '' );
+		renderFrameTools();
+		fitFrame();
+	}
+
+	root.querySelector( '.rh-frame-tools' ).addEventListener( 'click', ( e ) => {
+		const view = e.target.closest( '[data-viewport]' );
+		if ( view && ! view.disabled ) setViewport( view.dataset.viewport );
+		if ( e.target.closest( '#rh-maximize' ) ) setMaximized( ! root.querySelector( '.rh-layout' ).classList.contains( 'is-maximized' ) );
+	} );
+	setMaximized( remember( 'maximized' ) === '1' );
+	document.getElementById( 'rh-progress-close' ).addEventListener( 'click', () => {
+		state.progress = null;
+		renderProgress();
+	} );
 
 	// ---------- Rendering ----------
 
@@ -295,6 +359,123 @@
 		return n ? ` <span class="rh-pill stale" title="Page loads over this rehearsal's budget">${ n } over budget</span>` : '';
 	}
 
+	// ---------- Estimates and progress ----------
+
+	// Time to save a run after its last step.
+	const SAVE_MS = 500;
+
+	const duration = ( ms ) => {
+		const s = Math.max( 0, Math.round( ms / 1000 ) );
+		return s < 60 ? `${ s } s` : `${ Math.floor( s / 60 ) } min${ s % 60 ? ` ${ s % 60 } s` : '' }`;
+	};
+
+	// Average time per step in a run's log, leaving out the 0 ms notes ({{run}}, role, warnings) and failed
+	// steps, which mostly wait out a timeout.
+	function stepMs( log ) {
+		const timed = ( log || [] ).filter( ( l ) => l.ok && l.ms > 0 );
+		return timed.length ? timed.reduce( ( t, l ) => t + l.ms, 0 ) / timed.length : null;
+	}
+
+	// The same across every rehearsal's last run, for rehearsals that have never run.
+	function typicalStepMs() {
+		const all = state.recipes.flatMap( ( r ) => ( r.lastRun && r.lastRun.log ) || [] );
+		return stepMs( all ) || 1500;
+	}
+
+	// How long a rehearsal should take, from its last run: the whole run when it passed, or its pace per
+	// step when it stopped early. One that has never run is guessed from the others.
+	function estimate( r ) {
+		const steps = r.recipe.needs === 'playwright' ? 0 : r.recipe.steps.length;
+		const log = r.lastRun && r.lastRun.log;
+		if ( log && log.length && r.lastRun.status === 'pass' ) {
+			return { ms: log.reduce( ( t, l ) => t + ( l.ms || 0 ), 0 ) + steps * STEP_PAUSE + SAVE_MS, guessed: false };
+		}
+		const pace = stepMs( log );
+		return { ms: steps * ( ( pace || typicalStepMs() ) + STEP_PAUSE ) + SAVE_MS, guessed: ! pace };
+	}
+
+	function totalEstimate( recipes ) {
+		const all = recipes.map( estimate );
+		return { ms: all.reduce( ( t, e ) => t + e.ms, 0 ), guessed: all.some( ( e ) => e.guessed ) };
+	}
+
+	let progressTimer = null;
+
+	function startProgress( picked ) {
+		state.progress = { picked, est: picked.map( estimate ), index: 0, step: 0, started: performance.now(), current: performance.now(), done: false };
+		clearInterval( progressTimer );
+		progressTimer = setInterval( renderProgress, 500 );
+		renderProgress();
+	}
+
+	function progressAt( index ) {
+		Object.assign( state.progress, { index, step: 0, current: performance.now() } );
+		renderProgress();
+	}
+
+	function progressStep( step ) {
+		if ( state.progress ) state.progress.step = step;
+		renderProgress();
+	}
+
+	function finishProgress() {
+		clearInterval( progressTimer );
+		if ( state.progress ) state.progress.done = true;
+		renderProgress();
+	}
+
+	function renderProgress() {
+		const p = state.progress;
+		const box = document.getElementById( 'rh-progress' );
+		if ( ! p ) {
+			box.hidden = true;
+			root.style.removeProperty( '--rh-progress-height' );
+			return;
+		}
+		const n = p.picked.length;
+		const now = performance.now();
+		const elapsed = now - p.started;
+		const total = p.est.reduce( ( t, e ) => t + e.ms, 0 );
+		const guessed = p.est.some( ( e ) => e.guessed );
+		let fraction;
+		let text;
+		let tone = 'running';
+		if ( p.done ) {
+			const results = p.picked.map( ( r ) => ( r.live ? 'unsaved' : r.lastRun && r.lastRun.status ) );
+			const count = ( status, word ) => {
+				const k = results.filter( ( x ) => x === status ).length;
+				return k ? `${ k } ${ word }` : '';
+			};
+			const tally = [ count( 'pass', 'passed' ), count( 'fail', 'failed' ), count( 'queued', 'need Playwright' ), count( 'unsaved', 'not saved' ) ].filter( Boolean );
+			tone = results.some( ( x ) => x === 'fail' || x === 'unsaved' ) ? 'fail' : 'pass';
+			fraction = 1;
+			text = `Ran ${ n } rehearsal${ n === 1 ? '' : 's' } in ${ duration( elapsed ) } (expected about ${ duration( total ) }${ guessed ? ', partly guessed' : '' }) · ${ tally.join( ' · ' ) }`;
+		} else {
+			const r = p.picked[ p.index ];
+			const steps = r.recipe.needs === 'playwright' ? 0 : r.recipe.steps.length;
+			const inCurrent = now - p.current;
+			const later = p.est.slice( p.index + 1 ).reduce( ( t, e ) => t + e.ms, 0 );
+			const over = inCurrent > p.est[ p.index ].ms;
+			const left = Math.max( 0, p.est[ p.index ].ms - inCurrent ) + later;
+			fraction = ( p.index + ( steps ? p.step / steps : 0 ) ) / n;
+			text = [
+				`Running ${ p.index + 1 } of ${ n }: ${ r.title }`,
+				steps ? `step ${ Math.max( 1, p.step ) } of ${ steps }` : '',
+				`${ duration( elapsed ) } so far`,
+				over ? `taking longer than last time${ later ? `; about ${ duration( later ) } for the rest` : '' }` : `about ${ duration( left ) } left${ guessed ? ' (partly guessed: some have never run)' : '' }`,
+			]
+				.filter( Boolean )
+				.join( ' · ' );
+		}
+		box.hidden = false;
+		box.className = `rh-progress ${ tone }`;
+		document.getElementById( 'rh-progress-text' ).textContent = text;
+		document.getElementById( 'rh-progress-fill' ).style.inlineSize = `${ Math.round( fraction * 100 ) }%`;
+		document.getElementById( 'rh-progress-close' ).hidden = ! p.done;
+		// The sticky frame sits below the sticky progress bar.
+		root.style.setProperty( '--rh-progress-height', `${ box.offsetHeight + 12 }px` );
+	}
+
 	function renderRecipes() {
 		const all = state.recipes.filter( ( r ) => ! blocked( r ) ).every( ( r ) => r.checked );
 		const rows = state.recipes
@@ -309,7 +490,8 @@
 					r.recipe.theme ? `theme ${ esc( [].concat( r.recipe.theme ).join( ' or ' ) ) }` : '',
 					r.recipe.role ? `as ${ esc( r.recipe.role ) }` : '',
 					r.source ? 'installed from a link' : '',
-					r.lastRun ? `last run ${ ago( r.lastRun.date ) } by ${ esc( r.lastRun.by ) }` : '',
+					r.lastRun ? `last run ${ ago( r.lastRun.date ) } by ${ esc( r.lastRun.by ) }${ r.lastRun.viewport === 'mobile' ? ' (mobile)' : '' }` : '',
+					r.lastRun && ! estimate( r ).guessed ? `takes about ${ duration( estimate( r ).ms ) }` : '',
 				].filter( Boolean );
 				const error = r.live && r.live.error ? `<p class="rh-error">${ esc( r.live.error ) }</p>` : '';
 				return `
@@ -370,7 +552,10 @@
 		document.getElementById( 'rh-summary' ).innerHTML = parts.join( ' ' );
 		const selected = state.recipes.filter( ( r ) => r.checked && ! blocked( r ) );
 		runButton.disabled = state.running || ! selected.length;
-		runButton.textContent = state.running ? 'Running…' : `Run selected (${ selected.length })`;
+		const expected = totalEstimate( selected );
+		runButton.textContent = state.running ? 'Running…' : `Run selected (${ selected.length }${ selected.length ? `, about ${ duration( expected.ms ) }` : '' })`;
+		runButton.title = expected.guessed ? 'Estimated from the last runs; rehearsals that have never run are guessed.' : 'Estimated from the last runs.';
+		renderFrameTools();
 		const failed = failedRecipes().length;
 		runFailedButton.disabled = state.running || ! failed;
 		runFailedButton.textContent = `Run failed (${ failed })`;
@@ -442,7 +627,7 @@
 							<td><details><summary>${ esc( run.title ) } <span class="rh-muted">#${ run.id }</span></summary>${ logHtml(
 								run.log
 							) }${ errorsHtml( run.errors, `data-copy-run="${ run.id }"` ) }${ run.snapshots ?`<p class="rh-muted">${ run.snapshots } HTML snapshot(s) stored with this run.</p>` : '' }</details></td>
-							<td><span class="rh-pill ${ cls }">${ label }</span>${ slowPill( run ) }${ run.runner === 'playwright' ? ' <span class="rh-muted">in Playwright</span>' : '' }</td>
+							<td><span class="rh-pill ${ cls }">${ label }</span>${ slowPill( run ) }${ run.runner === 'playwright' ? ' <span class="rh-muted">in Playwright</span>' : '' }${ run.viewport === 'mobile' ? ' <span class="rh-muted">mobile</span>' : '' }</td>
 							<td><code>${ short( run.hash ) }</code>${ stale }</td>
 							<td>${ esc( run.build ) }</td>
 							<td><button type="button" class="button-link" data-filter-user="${ run.byId }" title="Show only runs by ${ esc( run.by ) }">${ esc( run.by ) }</button>${ run.role ? ` <span class="rh-muted">as ${ esc( run.role ) }</span>` : '' }${ run.ref ? ` <span class="rh-muted">ref ${ esc( run.ref ) }</span>` : '' }</td>
@@ -1257,6 +1442,7 @@
 	async function runRecipe( r, ref ) {
 		// Saving an edit mid-run updates r in place; the run keeps the rehearsal it started with.
 		const { id, hash, title, recipe, newer, format } = r;
+		const view = state.viewport;
 		clearRoleCookie();
 		// pageDoc starts as whatever the last rehearsal left in the frame, so it isn't measured as this run's page.
 		// Page loads are measured only for a rehearsal with its own budgets; pages: null switches it off.
@@ -1282,6 +1468,7 @@
 
 		let status = 'pass';
 		if ( newer ) run.log.push( { ok: true, msg: `Warning: ${ newerText( format ) }`, ms: 0 } );
+		if ( view === 'mobile' ) run.log.push( { ok: true, msg: `Mobile viewport: ${ VIEWPORTS.mobile.width } × ${ VIEWPORTS.mobile.height }`, ms: 0 } );
 		if ( recipe.needs === 'playwright' ) {
 			run.log.push( { ok: true, msg: 'Needs Playwright, so the browser did not run it. Saved as waiting for the Playwright runner.', ms: 0 } );
 			status = 'queued';
@@ -1307,6 +1494,7 @@
 			}
 			for ( const [ i, step ] of ( status === 'pass' ? steps : [] ).entries() ) {
 				document.getElementById( 'rh-frame-step' ).textContent = `${ title } · step ${ i + 1 }/${ steps.length }`;
+				progressStep( i + 1 );
 				const t0 = performance.now();
 				try {
 					const msg = await exec( run, step, step.timeout || timeout );
@@ -1334,7 +1522,7 @@
 			const saved = await apiFetch( {
 				path: '/rehearsal/v1/runs',
 				method: 'POST',
-				data: { recipe_id: id, recipe_hash: hash, status, log: run.log, snapshots: run.snapshots, errors: run.consoleErrors || [], ref: ref || '' },
+				data: { recipe_id: id, recipe_hash: hash, status, log: run.log, snapshots: run.snapshots, errors: run.consoleErrors || [], ref: ref || '', viewport: view },
 			} );
 			r.lastRun = saved;
 			r.live = null;
@@ -1374,8 +1562,10 @@
 			r.open = false;
 		} );
 		renderRecipes();
+		startProgress( picked );
 		try {
-			for ( const r of picked ) {
+			for ( const [ i, r ] of picked.entries() ) {
+				progressAt( i );
 				try {
 					await runRecipe( r, ref );
 				} catch ( e ) {
@@ -1387,6 +1577,7 @@
 			state.running = false;
 			clearCookies();
 			document.getElementById( 'rh-frame-step' ).textContent = 'Done';
+			finishProgress();
 			renderRecipes();
 		}
 	}

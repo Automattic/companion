@@ -265,6 +265,7 @@ final class Companion_Rehearsal_Command {
 					'title'     => $run['title'],
 					'status'    => $run['status'],
 					'runner'    => $run['runner'],
+					'viewport'  => $run['viewport'],
 					'by'        => $run['by'],
 					'ref'       => $run['ref'],
 					'failure'   => $failed ? $failed[0]['msg'] : '',
@@ -272,7 +273,7 @@ final class Companion_Rehearsal_Command {
 			},
 			$found['runs']
 		);
-		WP_CLI\Utils\format_items( $format, $rows, array( 'id', 'date', 'rehearsal', 'title', 'status', 'runner', 'by', 'ref', 'failure' ) );
+		WP_CLI\Utils\format_items( $format, $rows, array( 'id', 'date', 'rehearsal', 'title', 'status', 'runner', 'viewport', 'by', 'ref', 'failure' ) );
 	}
 
 	/**

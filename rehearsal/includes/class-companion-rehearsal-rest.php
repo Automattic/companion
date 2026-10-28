@@ -180,6 +180,12 @@ final class Companion_Rehearsal_Rest {
 						'enum'    => array( 'browser', 'playwright' ),
 						'default' => 'browser',
 					),
+					// The screen size the runner used: desktop, or a phone's for pages' mobile layouts.
+					'viewport'    => array(
+						'type'    => 'string',
+						'enum'    => array( 'desktop', 'mobile' ),
+						'default' => 'desktop',
+					),
 					// A label the caller picks, such as an agent's task ID, to find this run again.
 					'ref'         => array(
 						'type'    => 'string',

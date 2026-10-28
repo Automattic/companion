@@ -60,7 +60,7 @@
 
 .rh-layout { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 20px; align-items: start; }
 .rh-main { min-inline-size: 0; }
-.rh-frame { position: sticky; inset-block-start: 46px; min-inline-size: 0; }
+.rh-frame { position: sticky; inset-block-start: calc(46px + var(--rh-progress-height, 0px)); min-inline-size: 0; }
 .rh-frame-bar { display: flex; justify-content: space-between; gap: 12px; font: 12px Menlo, Consolas, monospace; color: #50575e; background: #f6f7f7; border: 1px solid #c3c4c7; border-block-end: 0; padding: 6px 10px; white-space: nowrap; }
 .rh-frame-bar > span { overflow: hidden; text-overflow: ellipsis; min-inline-size: 0; }
 .rh-frame-bar > span:last-child { flex-shrink: 0; max-inline-size: 45%; }
@@ -96,3 +96,26 @@
 .rh-cmd .button:hover, .rh-cmd .button:focus { color: #fff; background: #3c434a; border-color: #c3c4c7; }
 .rh-row-actions { white-space: nowrap; }
 .rh-row-actions .button-small { margin-inline-end: 8px; }
+
+/* Progress of a run, kept in view below the admin bar. */
+.rh-progress { position: sticky; inset-block-start: 32px; z-index: 10; margin-block: 12px 0; padding: 8px 12px 0; background: #fff; border: 1px solid #c3c4c7; }
+.rh-progress-text { display: flex; justify-content: space-between; gap: 12px; font-size: 13px; }
+.rh-progress-text button { font-size: 18px; line-height: 1; text-decoration: none; }
+.rh-progress-track { block-size: 4px; margin: 8px -12px 0; background: #f0f0f1; }
+.rh-progress-track span { display: block; block-size: 100%; inline-size: 0; background: #2271b1; transition: inline-size 0.3s; }
+.rh-progress.pass .rh-progress-track span { background: #00a32a; }
+.rh-progress.fail .rh-progress-track span { background: #d63638; }
+@media (max-width: 782px) { .rh-progress { inset-block-start: 46px; } }
+
+.rh-frame-tools { display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-block-end: 6px; }
+.rh-segmented { display: inline-flex; }
+.rh-segmented .button { border-radius: 0; margin: 0; }
+.rh-segmented .button:first-child { border-start-start-radius: 3px; border-end-start-radius: 3px; }
+.rh-segmented .button:last-child { border-start-end-radius: 3px; border-end-end-radius: 3px; margin-inline-start: -1px; }
+.rh-frame-tools .button[aria-pressed="true"] { background: #2271b1; border-color: #2271b1; color: #fff; }
+/* A phone-sized page sits centred on a grey surround. */
+.rh-frame-viewport.is-mobile { background: #f0f0f1; }
+.rh-frame-viewport.is-mobile iframe { background: #fff; box-shadow: 0 0 0 1px #c3c4c7; }
+/* Maximized: the frame spans the width, above the list. */
+.rh-layout.is-maximized { grid-template-columns: minmax(0, 1fr); }
+.rh-layout.is-maximized .rh-frame { position: static; order: -1; }

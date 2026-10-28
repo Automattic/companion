@@ -201,6 +201,7 @@ final class Companion_Rehearsal_Runs {
 			'role'      => (string) get_post_meta( $run->ID, '_rehearsal_role', true ),
 			'runner'    => 'playwright' === get_post_meta( $run->ID, '_rehearsal_runner', true ) ? 'playwright' : 'browser',
 			'ref'       => (string) get_post_meta( $run->ID, '_rehearsal_ref', true ),
+			'viewport'  => 'mobile' === get_post_meta( $run->ID, '_rehearsal_viewport', true ) ? 'mobile' : 'desktop',
 		);
 	}
 
@@ -251,6 +252,7 @@ final class Companion_Rehearsal_Runs {
 					'_rehearsal_role'        => sanitize_key( (string) ( json_decode( $recipe->post_content, true )['role'] ?? '' ) ),
 					'_rehearsal_runner'      => $request['runner'],
 					'_rehearsal_ref'         => (string) $request['ref'],
+					'_rehearsal_viewport'    => $request['viewport'],
 				),
 			),
 			true
