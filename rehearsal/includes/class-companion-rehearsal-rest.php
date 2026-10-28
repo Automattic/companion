@@ -131,6 +131,7 @@ final class Companion_Rehearsal_Rest {
 						'enum' => array( '', 'pass', 'fail', 'queued' ),
 					),
 					'search' => array( 'type' => 'string' ),
+					'ref'    => array( 'type' => 'string' ),
 					'page'   => array(
 						'type'    => 'integer',
 						'minimum' => 1,
@@ -173,6 +174,18 @@ final class Companion_Rehearsal_Rest {
 						'type'    => 'array',
 						'default' => array(),
 					),
+					// Which runner ran it: this screen, or a Playwright test reporting back.
+					'runner'      => array(
+						'type'    => 'string',
+						'enum'    => array( 'browser', 'playwright' ),
+						'default' => 'browser',
+					),
+					// A label the caller picks, such as an agent's task ID, to find this run again.
+					'ref'         => array(
+						'type'    => 'string',
+						'pattern' => Companion_Rehearsal_Runs::REF_PATTERN,
+						'default' => '',
+					),
 				),
 			)
 		);
@@ -195,6 +208,11 @@ final class Companion_Rehearsal_Rest {
 		if ( $error || '' === $title ) {
 			return new WP_Error( 'rehearsal_invalid', $error ? $error : 'Give the rehearsal a title.', array( 'status' => 400 ) );
 		}
+		// Posting the same rehearsal again, as a retrying agent does, returns the one already saved.
+		$same = $id ? 0 : Companion_Rehearsal_Store::find_same( $title, $recipe );
+		if ( $same ) {
+			return rest_ensure_response( Companion_Rehearsal_Store::recipe_for_js( get_post( $same ) ) + array( 'existing' => true ) );
+		}
 		$id = Companion_Rehearsal_Store::save_recipe( $id, $title, $recipe );
 		return is_wp_error( $id ) ? $id : rest_ensure_response( Companion_Rehearsal_Store::recipe_for_js( get_post( $id ) ) );
 	}
@@ -215,14 +233,27 @@ final class Companion_Rehearsal_Rest {
 	}
 
 	/**
-	 * Fetch a share link's JSON, check it, and preview it (dry_run) or install it.
-	 * Installing from the same link again updates that copy rather than adding a second one.
+	 * Preview (dry_run) or install a rehearsal from a share link.
 	 *
 	 * @param WP_REST_Request $request Request.
 	 * @return WP_REST_Response|WP_Error
 	 */
 	public static function rest_install( $request ) {
-		$source = remove_query_arg( 'format', esc_url_raw( $request['url'] ) );
+		$result = self::install( $request['url'], (bool) $request['dry_run'], (string) $request['expect'] );
+		return is_wp_error( $result ) ? $result : rest_ensure_response( $result );
+	}
+
+	/**
+	 * Fetch a share link's JSON, check it, and preview it (dry_run) or install it. Installing from the
+	 * same link again updates that copy rather than adding a second one. `wp rehearsal install` uses it too.
+	 *
+	 * @param string $url     Share link.
+	 * @param bool   $dry_run Only preview.
+	 * @param string $expect  The rehearsal ID the preview showed; installing anything else is refused.
+	 * @return array|WP_Error The preview, or the installed rehearsal as the runner sees it.
+	 */
+	public static function install( $url, $dry_run, $expect ) {
+		$source = remove_query_arg( 'format', esc_url_raw( $url ) );
 		if ( ! wp_http_validate_url( $source ) || 'https' !== wp_parse_url( $source, PHP_URL_SCHEME ) || false === strpos( $source, 'rehearsal=' ) ) {
 			return new WP_Error( 'rehearsal_bad_link', 'That is not a rehearsal link. It should look like https://some-site.jurassic.ninja/?rehearsal=…', array( 'status' => 400 ) );
 		}
@@ -270,13 +301,13 @@ final class Companion_Rehearsal_Rest {
 			'shared_by' => sanitize_text_field( $text( 'shared_by' ) ),
 			'missing'   => Companion_Rehearsal_Requirements::missing_requirements( $recipe ),
 		);
-		if ( $request['dry_run'] ) {
-			return rest_ensure_response( $preview );
+		if ( $dry_run ) {
+			return $preview;
 		}
-		if ( empty( $request['expect'] ) || $request['expect'] !== $preview['id'] ) {
+		if ( ! $expect || ! hash_equals( $preview['id'], $expect ) ) {
 			return new WP_Error( 'rehearsal_changed', 'The shared rehearsal changed since you previewed it. Preview it again before installing.', array( 'status' => 409 ) );
 		}
 		$id = Companion_Rehearsal_Store::save_recipe( $existing ? (int) $existing[0] : 0, $title, $recipe, $source );
-		return is_wp_error( $id ) ? $id : rest_ensure_response( Companion_Rehearsal_Store::recipe_for_js( get_post( $id ) ) + array( 'updated' => (bool) $existing ) );
+		return is_wp_error( $id ) ? $id : Companion_Rehearsal_Store::recipe_for_js( get_post( $id ) ) + array( 'updated' => (bool) $existing );
 	}
 }

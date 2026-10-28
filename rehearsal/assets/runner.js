@@ -43,6 +43,7 @@
 			<button type="button" class="button" id="rh-install">Install from link</button>
 			<span class="rh-summary" id="rh-summary"></span>
 		</div>
+		<p class="rh-autorun" id="rh-autorun" role="status" hidden></p>
 		<div class="rh-layout">
 			<div class="rh-main" id="rh-recipes"></div>
 			<aside class="rh-frame" aria-label="Test frame">
@@ -441,10 +442,10 @@
 							<td><details><summary>${ esc( run.title ) } <span class="rh-muted">#${ run.id }</span></summary>${ logHtml(
 								run.log
 							) }${ errorsHtml( run.errors, `data-copy-run="${ run.id }"` ) }${ run.snapshots ?`<p class="rh-muted">${ run.snapshots } HTML snapshot(s) stored with this run.</p>` : '' }</details></td>
-							<td><span class="rh-pill ${ cls }">${ label }</span>${ slowPill( run ) }</td>
+							<td><span class="rh-pill ${ cls }">${ label }</span>${ slowPill( run ) }${ run.runner === 'playwright' ? ' <span class="rh-muted">in Playwright</span>' : '' }</td>
 							<td><code>${ short( run.hash ) }</code>${ stale }</td>
 							<td>${ esc( run.build ) }</td>
-							<td><button type="button" class="button-link" data-filter-user="${ run.byId }" title="Show only runs by ${ esc( run.by ) }">${ esc( run.by ) }</button>${ run.role ? ` <span class="rh-muted">as ${ esc( run.role ) }</span>` : '' }</td>
+							<td><button type="button" class="button-link" data-filter-user="${ run.byId }" title="Show only runs by ${ esc( run.by ) }">${ esc( run.by ) }</button>${ run.role ? ` <span class="rh-muted">as ${ esc( run.role ) }</span>` : '' }${ run.ref ? ` <span class="rh-muted">ref ${ esc( run.ref ) }</span>` : '' }</td>
 						</tr>`;
 					} )
 					.join( '' ) }</tbody>
@@ -490,8 +491,9 @@
 		return `<details class="rh-help"><summary>What can a rehearsal do?</summary>
 			<p><b>Steps:</b> ${ data.steps.map( ( s ) => `<code>${ s }</code>` ).join( ' ' ) }</p>
 			<p><b><code>expect</code> matchers</b> (plus optional <code>"not": true</code>): ${ data.matchers.map( ( m ) => `<code>${ m }</code>` ).join( ' ' ) }</p>
+			<p><b><code>dialog</code></b> answers the next alert, confirm or prompt: <code>{ "dialog": "accept", "value": "prompt text" }</code> or <code>{ "dialog": "dismiss" }</code>. Put it before the step that opens the dialog. Without one, dialogs are dismissed.</p>
 			<p><b>Any step</b> takes <code>"optional": true</code> and <code>"timeout"</code> in ms. <code>{{run}}</code> becomes a value unique to each run.</p>
-			<p><b><code>"requires"</code></b> lists plugin slugs (folder names, or text domains) that must be active, such as <code>["jetpack"]</code>. Without them the rehearsal is shown but can't run.</p>
+			<p><b><code>"requires"</code></b> lists plugin slugs (folder names, or text domains) that must be active, such as <code>["jetpack"]</code>, or <code>["jetpack or jetpack-premium-analytics"]</code> when any one will do. Without them the rehearsal is shown but can't run.</p>
 			<p><b><code>"theme"</code></b> names the theme that must be active (or one of a list), such as <code>"twentytwentyfour"</code>; a child of it counts.</p>
 			<p><b><code>"role"</code></b> runs the rehearsal as a test user with that role, such as <code>"editor"</code> (created as <code>rehearsal-editor</code> the first time). Without it, it runs as you.</p>
 			<p><b><code>"format"</code></b> is the rehearsal format it was written in, added when it's saved. A rehearsal from a newer version of Rehearsal than this site's still runs, with a warning.</p>
@@ -525,6 +527,8 @@
 					<button type="button" class="button-link" data-copy-raw title="The steps as JSON. For scripts, the link plus &amp;format=json returns the same.">JSON</button>
 					<span aria-hidden="true">·</span>
 					<button type="button" class="button-link" data-copy-pw title="A standalone .spec.ts file">Playwright test</button>
+					<span aria-hidden="true">·</span>
+					<button type="button" class="button-link" data-copy-run-url title="Opening it runs this rehearsal straight away. Add &amp;ref=<label> to find the run again.">Run link</button>
 				</div>
 				<p class="rh-muted">Anyone with the link can view and install this rehearsal. Copies use the saved version.</p>
 			</div>`
@@ -546,41 +550,8 @@
 		modal.dataset.recipe = r ? r.id : '';
 	}
 
-	const RESULT_WORDS = { pass: 'Passed', fail: 'Failed', queued: 'Needs Playwright (not run)' };
-
 	function recipeJson( r ) {
 		return JSON.stringify( r.recipe, null, 2 );
-	}
-
-	// For a PR description: a summary that reads well on GitHub, with the recipe folded away below it.
-	function recipeMarkdown( r ) {
-		const steps = r.recipe.steps.length;
-		const facts = [
-			`Rehearsal \`${ short( r.hash ) }\``,
-			`${ steps } step${ steps === 1 ? '' : 's' }`,
-			r.recipe.covers ? `covers ${ r.recipe.covers.map( ( c ) => `\`${ c }\`` ).join( ', ' ) }` : 'manual only',
-		];
-		const last =
-			r.lastRun && r.lastRun.hash === r.hash
-				? `Last run: **${ RESULT_WORDS[ r.lastRun.status ] || r.lastRun.status }** on ${ r.lastRun.build }, run #${ r.lastRun.id }, ${ r.lastRun.date.slice( 0, 10 ) }.`
-				: 'Not run since its last change.';
-		return [
-			'<!-- rehearsal v1 -->',
-			`#### Rehearsal: ${ r.title }`,
-			'',
-			`${ facts.join( ' · ' ) }  `,
-			`${ last }  `,
-			`[View or install this rehearsal](${ r.shareUrl }) · [JSON](${ r.shareUrl }&format=json) · [Playwright test](${ r.shareUrl }&format=playwright) (links work while ${ new URL( data.homeUrl ).host } exists)`,
-			'',
-			'<details>',
-			'<summary>Rehearsal JSON</summary>',
-			'',
-			'```json',
-			recipeJson( r ),
-			'```',
-			'',
-			'</details>',
-		].join( '\n' );
 	}
 
 	function showRunsFor( changes ) {
@@ -762,7 +733,9 @@
 		if ( t.matches( '[data-copy-share]' ) ) copy( modal.querySelector( '#rh-m-share' ).value, t );
 		if ( t.matches( '[data-copy-cmd]' ) ) copy( t.previousElementSibling.textContent, t );
 		const current = state.recipes.find( ( r ) => r.id === id );
-		if ( t.matches( '[data-copy-gh]' ) ) copy( recipeMarkdown( current ), t );
+		// Built by the server, the same block as &format=github and wp rehearsal block.
+		if ( t.matches( '[data-copy-gh]' ) ) copyFetched( `${ current.shareUrl }&format=github`, t );
+		if ( t.matches( '[data-copy-run-url]' ) ) copy( current.runUrl, t );
 		if ( t.matches( '[data-copy-raw]' ) ) copy( recipeJson( current ), t );
 		if ( t.matches( '[data-copy-pw]' ) ) copyFetched( `${ current.shareUrl }&format=playwright`, t );
 		if ( t.matches( '[data-runs-for]' ) ) showRunsFor( { recipe: t.dataset.runsFor } );
@@ -1011,6 +984,8 @@
 			.slice( from )
 			.forEach( ( e ) => run.errors.push( { page: win.location.pathname + win.location.search, msg: e.msg, source: e.source } ) );
 		win.__rehearsalSeen = win.__rehearsal.errors.length;
+		( win.__rehearsal.dialogs || [] ).slice( win.__rehearsalDialogsSeen || 0 ).forEach( ( d ) => run.dialogs.push( d ) );
+		win.__rehearsalDialogsSeen = ( win.__rehearsal.dialogs || [] ).length;
 		// One metrics object per document (the frame keeps its window across navigations); it keeps updating until the recorder freezes it after load.
 		const m = win.__rehearsal.metrics && win.__rehearsal.metrics();
 		if ( m && run.pages ) {
@@ -1130,7 +1105,20 @@
 			return `fill ${ step.fill } = “${ step.value }”`;
 		}
 		if ( 'click' in step ) {
-			const el = await until( run, () => find( onSiteDoc(), step.click ), step.click, timeout );
+			// Like Playwright, wait for the element to be enabled too: a save button often is only once the form is ready.
+			let disabled = false;
+			const el = await until(
+				run,
+				() => {
+					const found = find( onSiteDoc(), step.click );
+					disabled = !! found && isDisabled( found );
+					return ! disabled && found;
+				},
+				step.click,
+				timeout
+			).catch( ( e ) => {
+				throw e.timeout && disabled ? new Error( `${ e.message } to be enabled (it stayed disabled)` ) : e;
+			} );
 			const link = el.closest( 'a[target="_blank"][href]' );
 			if ( link ) {
 				// A new tab would escape the runner, so load the link in the frame like Playwright following a popup.
@@ -1232,6 +1220,11 @@
 			run.snapshots.push( { selector: step.snapshot, html: el.outerHTML.slice( 0, 100000 ) } );
 			return `snapshot ${ step.snapshot } (${ Math.round( el.outerHTML.length / 1024 ) } KB)`;
 		}
+		if ( 'dialog' in step ) {
+			// The frame's recorder answers the next alert, confirm or prompt this way, like Playwright's page.once( 'dialog' ).
+			window.__rehearsalDialog = { action: step.dialog, value: step.value };
+			return `dialog: ${ step.dialog } the next one`;
+		}
 		if ( 'screenshot' in step ) {
 			throw new Error( 'The browser cannot take screenshots. Add "needs": "playwright" to this rehearsal.' );
 		}
@@ -1254,21 +1247,28 @@
 	function ignoreEarlierErrors() {
 		try {
 			const win = frame.contentWindow;
-			if ( win && win.__rehearsal ) win.__rehearsalSeen = win.__rehearsal.errors.length;
+			if ( win && win.__rehearsal ) {
+				win.__rehearsalSeen = win.__rehearsal.errors.length;
+				win.__rehearsalDialogsSeen = ( win.__rehearsal.dialogs || [] ).length;
+			}
 		} catch ( e ) {}
 	}
 
-	async function runRecipe( r ) {
+	async function runRecipe( r, ref ) {
 		// Saving an edit mid-run updates r in place; the run keeps the rehearsal it started with.
 		const { id, hash, title, recipe, newer, format } = r;
 		clearRoleCookie();
 		// pageDoc starts as whatever the last rehearsal left in the frame, so it isn't measured as this run's page.
 		// Page loads are measured only for a rehearsal with its own budgets; pages: null switches it off.
 		const budget = recipe.budgets || null;
-		const run = { log: [], errors: [], snapshots: [], pages: budget ? [] : null, newPages: [], pageDoc: frameDoc() };
-		// Page loads seen while a step ran are shown under that step's log line.
+		const run = { log: [], errors: [], snapshots: [], dialogs: [], pages: budget ? [] : null, newPages: [], pageDoc: frameDoc() };
+		window.__rehearsalDialog = null;
+		// Dialogs and page loads seen while a step ran are shown on that step's log line.
 		const attachPages = ( entry ) => {
 			harvest( run );
+			run.dialogs.splice( 0 ).forEach( ( d ) => {
+				entry.msg += ` · ${ d.type } “${ d.message }” ${ d.action === 'accept' ? 'accepted' : 'dismissed' }${ d.answered ? '' : ' (no dialog step before it)' }`;
+			} );
 			if ( ! budget ) return entry;
 			if ( run.newPages.length ) entry.pages = run.newPages.splice( 0 );
 			run.pages.forEach( ( p ) => assess( p, budget ) );
@@ -1326,6 +1326,7 @@
 				await sleep( STEP_PAUSE );
 			}
 			if ( run.log.length ) attachPages( run.log[ run.log.length - 1 ] );
+			window.__rehearsalDialog = null;
 			clearRoleCookie();
 		}
 
@@ -1333,7 +1334,7 @@
 			const saved = await apiFetch( {
 				path: '/rehearsal/v1/runs',
 				method: 'POST',
-				data: { recipe_id: id, recipe_hash: hash, status, log: run.log, snapshots: run.snapshots, errors: run.consoleErrors || [] },
+				data: { recipe_id: id, recipe_hash: hash, status, log: run.log, snapshots: run.snapshots, errors: run.consoleErrors || [], ref: ref || '' },
 			} );
 			r.lastRun = saved;
 			r.live = null;
@@ -1362,7 +1363,7 @@
 	runButton.addEventListener( 'click', () => runRecipes( state.recipes.filter( ( r ) => r.checked && ! blocked( r ) ) ) );
 	runFailedButton.addEventListener( 'click', () => runRecipes( failedRecipes() ) );
 
-	async function runRecipes( picked ) {
+	async function runRecipes( picked, ref ) {
 		if ( ! picked.length || state.running ) return;
 		state.running = true;
 		// Tells the plugin which editor loads come from the runner's frame (see no_isolation_in_frame()).
@@ -1376,7 +1377,7 @@
 		try {
 			for ( const r of picked ) {
 				try {
-					await runRecipe( r );
+					await runRecipe( r, ref );
 				} catch ( e ) {
 					// A bug in the runner must fail this rehearsal, not leave the page stuck on "Running…".
 					r.live = { status: 'unsaved', log: [], error: `The runner itself failed: ${ e.message }` };
@@ -1393,6 +1394,42 @@
 	renderRecipes();
 	renderFilterOptions();
 	renderHistory();
+
+	// A run link (&run=<ids>.<key>&ref=<label>) runs its rehearsals as soon as the screen opens, for agents.
+	// The result is on #rh-app as data-run-status (running, pass, fail, queued or error) and data-run-ids.
+	async function autorun( { ids, ref, error } ) {
+		const line = document.getElementById( 'rh-autorun' );
+		const report = ( status, text, runIds = [] ) => {
+			root.dataset.runStatus = status;
+			root.dataset.runIds = runIds.join( ',' );
+			line.hidden = false;
+			line.className = `rh-autorun ${ status }`;
+			line.textContent = text;
+		};
+		if ( error ) return report( 'error', error );
+		const picked = ids.map( ( id ) => state.recipes.find( ( r ) => r.id === id ) );
+		const unusable = ids.filter( ( id, i ) => ! picked[ i ] || blocked( picked[ i ] ) );
+		if ( unusable.length ) {
+			return report( 'error', `Run link: rehearsal ${ unusable.join( ', ' ) } is deleted or can't run on this site, so nothing ran.` );
+		}
+		const count = `${ picked.length } rehearsal${ picked.length === 1 ? '' : 's' }`;
+		report( 'running', `Run link: running ${ count }${ ref ? ` (ref ${ ref })` : '' }…` );
+		await runRecipes( picked, ref );
+		const results = picked.map( ( r ) => ( r.live ? 'error' : r.lastRun.status ) );
+		const status = [ 'error', 'fail', 'queued' ].find( ( s ) => results.includes( s ) ) || 'pass';
+		const runIds = picked.filter( ( r ) => ! r.live ).map( ( r ) => r.lastRun.id );
+		const outcome = { pass: 'all passed', fail: 'some failed', queued: 'some need Playwright', error: 'some could not be saved' }[ status ];
+		report( status, `Run link: ran ${ count }, ${ outcome }. Saved as ${ runIds.map( ( i ) => '#' + i ).join( ', ' ) || 'nothing' }${ ref ? `, ref ${ ref }` : '' }.`, runIds );
+	}
+
+	if ( data.autorun ) {
+		// Drop &run= so a reload doesn't run it again.
+		const url = new URL( window.location.href );
+		url.searchParams.delete( 'run' );
+		url.searchParams.delete( 'ref' );
+		window.history.replaceState( null, '', url );
+		autorun( data.autorun );
+	}
 
 	if ( data.install ) {
 		// Drop ?install= so a reload doesn't prompt again.

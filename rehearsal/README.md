@@ -48,7 +48,7 @@ action.
 | Step | What it does |
 | --- | --- |
 | `{ "goto": "/wp-admin/…" }` | Loads a page of this site. Paths under `/wp-admin/` use the admin URL, others the home URL. |
-| `{ "click": sel }` | Clicks. A link that opens a new tab loads in the frame instead. |
+| `{ "click": sel }` | Clicks once the element is enabled, as Playwright does. A link that opens a new tab loads in the frame instead. |
 | `{ "fill": sel, "value": "…" }` | Types into an input or textarea (works with React-controlled fields). |
 | `{ "check": sel }` / `{ "uncheck": sel }` | Sets a checkbox or radio. A label or wrapper works too. |
 | `{ "selectOption": sel, "value": "…" }` | Picks an option by its value, or else its label. |
@@ -59,17 +59,20 @@ action.
 | `{ "expectText": "…", "in": sel }` | Waits until the page (or `in`) contains the text. |
 | `{ "expectNoConsoleErrors": true }` | Fails on script errors so far: `console.error`, uncaught errors, rejected promises. Use `{ "ignore": [ "regex" ] }` to skip known ones. |
 | `{ "snapshot": sel }` | Saves the element's HTML with the run. |
+| `{ "dialog": "accept", "value": "…" }` / `{ "dialog": "dismiss" }` | Answers the next alert, confirm or prompt (`value` is the prompt's text). Put it before the step that opens the dialog. Without one, dialogs are dismissed, as in Playwright. |
 | `{ "screenshot": "name" }` | Playwright only; mark the rehearsal `"needs": "playwright"`. |
 
 `expect` takes one matcher, named after Playwright's: `toBeVisible`, `toHaveText` (whole text),
 `toContainText`, `toHaveCount`, `toBeEnabled`, `toBeDisabled`, `toBeChecked`, `toHaveValue`. Add
-`"not": true` to invert it.
+`"not": true` to invert it. The yes-or-no matchers only take `true`: `"toBeVisible": false` is rejected,
+because it used to check for visible; write `"toBeVisible": true, "not": true`.
 
 ### Selectors
 
 - CSS: `#submit`, `.notice`, `form.contact-form input[type=email]`
 - `text=Save settings`: an element containing that text, or whose `aria-label` does (icon buttons)
-- `role=button`, `role=table`, …
+- `role=button`, `role=table`, … (`role=tab:has-text("Settings")` works too; the Playwright export turns
+  it into `.filter( { hasText } )`, since Playwright's own `role=` rejects `:has-text`)
 - `:has-text("…")` on the last part of a CSS selector: `tr:has-text("Ada")`
 - `a >> b`: `b` inside `a`. When `a` is an iframe, `b` is looked up inside it, which is how you reach
   the block editor: `iframe[name="editor-canvas"] >> [data-type="jetpack/contact-form"]`
@@ -87,23 +90,26 @@ the form, page or response it just created.
 
 | Key | Example | Effect |
 | --- | --- | --- |
-| `requires` | `[ "jetpack" ]` | Plugins that must be active (folder names or text domains). Otherwise the rehearsal is disabled. |
+| `requires` | `[ "jetpack" ]` | Plugins that must be active (folder names or text domains). `"jetpack or jetpack-premium-analytics"` is met by either. Otherwise the rehearsal is disabled. |
 | `theme` | `"twentytwentyfour"` or a list | The active theme (a child of it counts). Otherwise disabled. |
 | `role` | `"editor"` | Runs as a test user with that role (see below). |
 | `budgets` | `{ "lcp": 2500, "weight": 2097152 }` | Measures every page load and flags the ones over budget. Without it nothing is measured. |
 | `covers` | `[ "packages/forms" ]` | Labels for what the rehearsal exercises, so a CI job can pick rehearsals by what changed. |
 | `needs` | `"playwright"` | Skips the browser runner; for rehearsals that need screenshots or other sites. |
 | `timeout` | `20000` | Default step timeout in ms. |
-| `format` | `1` | The rehearsal format it was written in. Added when the rehearsal is saved; you don't write it. |
+| `format` | `1` | The oldest rehearsal format that can run it. Added when the rehearsal is saved; you don't write it. |
 
 ### Versions
 
-Every rehearsal records the format it was written in (`"format": 1`). A Companion release raises
+Every rehearsal records the oldest format that can run it (`"format": 1`), so a rehearsal that uses
+nothing new still runs on older sites without a warning. A Companion release raises
 `Companion_Rehearsal::FORMAT` when it adds something older versions can't run: a new step, matcher or
-setting. A site whose Rehearsal is older than a rehearsal's format still runs it, but warns in the
+setting. Format 2 added the `dialog` step and either-or `requires`. A site whose Rehearsal is older than a rehearsal's format still runs it, but warns in the
 list ("Newer format"), in the dialog, before installing, and as the first line of the run log. When
 an older version can't even read it, installing explains that the Companion plugin needs updating.
-The rehearsal ID ignores the format, so stamping it never makes results stale.
+The rehearsal ID ignores the format, so stamping it never makes results stale, and the order of keys,
+so `{ "fill", "value" }` and `{ "value", "fill" }` are the same rehearsal. Runs saved before IDs
+ignored key order are matched by the steps they stored, so they don't turn stale either.
 
 Budget keys are `ttfb`, `fcp`, `lcp` (ms), `cls`, `requests`, `weight` and `js` (compressed bytes).
 Going over is a notice, never a failure.
@@ -135,14 +141,16 @@ searched by title or run number (`#233`).
 
 ## Sharing
 
-The **Share** box in the rehearsal dialog has a link and three copies:
+The **Share** box in the rehearsal dialog has a link, three copies and a run link:
 
 - **Share link**: `https://<site>/?rehearsal=<id>.<key>`. Opened in a browser it shows the rehearsal
   and an **Install on your site** box. With `&format=json` it returns the rehearsal for scripts and CI.
   The key is unique to the rehearsal, so the link reveals nothing else.
 - **Copy as GitHub**: a summary with the last result and the JSON folded away, for a PR description.
+  The server builds it, so it is the same as `<share link>&format=github` and `wp rehearsal block <id>`.
 - **Copy as JSON**: the raw steps.
 - **Copy as Playwright test**: a standalone `.spec.ts` (see below).
+- **Run link**: opens this screen and runs the rehearsal straight away (see below).
 
 ![The rehearsal dialog](screenshots/dialog.png)
 
@@ -174,8 +182,37 @@ Select rehearsals and press **Run in Playwright**. It exports them as one `rehea
 A single rehearsal is also available as **Copy as Playwright test**, or `<share link>&format=playwright`.
 The bundle link is signed like a share link, so it returns exactly the rehearsals it was made for.
 
+Each test saves its result on the site as a run, so it shows in **Recent runs** marked "in Playwright".
+It posts with the `STORAGE_STATE` session (an administrator's), with a step-by-step log. Set
+`REHEARSAL_REF=<label>` to label the runs, or `REHEARSAL_REPORT=0` to save nothing. A test run against
+another site (`BASE_URL`), or after the rehearsal changed, is not saved; the report says why.
+
 In Playwright, screenshots work, every page load starts with an empty cache, and failed network
 requests are noted in the report instead of counting as console errors.
+
+## For agents and scripts
+
+`wp rehearsal` does what the screen does, without a browser:
+
+```bash
+wp rehearsal save checkout.json --title="Checkout: pays with a test card"   # or pipe JSON in
+wp rehearsal list --format=json                    # each rehearsal, its share and run links, last run
+wp rehearsal install "https://other-site/?rehearsal=12.abc…" --yes
+wp rehearsal runs --rehearsal=12 --ref=task-481 --format=json
+wp rehearsal block 12 >> pr-body.md                # the GitHub block for a PR description
+```
+
+`save` takes a rehearsal or what a share link returns with `&format=json`. Saving the same title and
+steps again, from the CLI or `POST /rehearsal/v1/rehearsals`, returns the rehearsal already saved
+(`"existing": true`) instead of a copy.
+
+**Running without clicks.** A run link,
+`/wp-admin/tools.php?page=rehearsal&run=<ids>.<key>&ref=<label>` (from `wp rehearsal list` or the
+dialog's **Run link**), runs its rehearsals as soon as the screen opens in a logged-in browser. While
+it runs, `#rh-app` has `data-run-status="running"`; then `pass`, `fail`, `queued` or `error`, with the
+saved run numbers in `data-run-ids`. The runs keep the `ref`, so `wp rehearsal runs --ref=<label>` or
+`GET /rehearsal/v1/runs/search?ref=<label>` finds them. The key is checked, so another site can't
+link an admin into running something.
 
 ## How it works, and its limits
 
@@ -212,6 +249,7 @@ requests are noted in the report instead of counting as console errors.
 | `Companion_Rehearsal_Rest` | REST routes |
 | `Companion_Rehearsal_Admin` | The screen, its assets, the in-frame recorder, the build line |
 | `Companion_Rehearsal_Examples` | The example rehearsals |
+| `Companion_Rehearsal_Command` | `wp rehearsal` |
 
 The decisions worth testing are pure functions that take what they need as arguments, such as
 `Schema::validate()`, `Requirements::find_missing()`, `Roles::is_from_frame()`,

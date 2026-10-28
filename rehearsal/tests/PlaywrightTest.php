@@ -54,6 +54,11 @@ class PlaywrightTest extends TestCase {
 			'ignored console errors'           => array( array( 'expectNoConsoleErrors' => array( 'ignore' => array( 'already registered' ) ) ), 'new RegExp( "already registered" )' ),
 			'user text keeps its spacing'      => array( array( 'fill' => '#q', 'value' => 'call ( ) now' ), '.fill( "call ( ) now" );' ),
 			'no timeout, no options'           => array( array( 'hover' => '#menu' ), '.hover();' ),
+			// Playwright's role= engine throws on pseudo-classes; the browser runner allows :has-text().
+			'role with :has-text is a filter'  => array( array( 'click' => 'role=tab:has-text("Settings")' ), 'page.locator( "role=tab" ).filter( { hasText: "Settings" } )' ),
+			'dialog accept with prompt text'   => array( array( 'dialog' => 'accept', 'value' => 'Ada {{run}}' ), "page.once( 'dialog', ( d ) => d.accept( \"Ada \" + run ) );" ),
+			'dialog dismiss'                   => array( array( 'dialog' => 'dismiss' ), "page.once( 'dialog', ( d ) => d.dismiss() );" ),
+			'each step is a logged test.step'  => array( array( 'expect' => 'h1', 'not' => true, 'toHaveText' => 'Oops' ), 'await rh.step( 1, "expect h1 not toHaveText \"Oops\"", async () => {' ),
 		);
 	}
 
@@ -70,7 +75,7 @@ class PlaywrightTest extends TestCase {
 	 */
 	public function test_every_step_type_becomes_code( $step ) {
 		$code = $this->generate( array( array( 'goto' => '/' ), $step ) );
-		$this->assertMatchesRegularExpression( '/\n\t\t(await |expect\()[^\n]+;\n\t\} \);\n\} \);\n$/', $code );
+		$this->assertMatchesRegularExpression( '/\n\t\tawait rh\.step\( 2, [^\n]+, async \(\) => \{\n\t\t\t(await |expect\(|page\.once\()[^\n]+;\n\t\t\} \);\n\t\} \);\n\} \);\n$/', $code );
 	}
 
 	public function test_every_step_type_is_in_the_list_above() {
@@ -94,6 +99,7 @@ class PlaywrightTest extends TestCase {
 			'expectNoConsoleErrors' => array( 'expectNoConsoleErrors' => true ),
 			'snapshot'              => array( 'snapshot' => 'main' ),
 			'screenshot'            => array( 'screenshot' => 'home' ),
+			'dialog'                => array( 'dialog' => 'accept' ),
 		);
 		$values = array( 'toHaveCount' => 2, 'toHaveText' => 'a', 'toContainText' => 'a', 'toHaveValue' => 'a' );
 		foreach ( Companion_Rehearsal_Schema::MATCHERS as $matcher ) {
@@ -104,7 +110,24 @@ class PlaywrightTest extends TestCase {
 
 
 	public function test_optional_steps_cannot_fail_the_test() {
-		$this->assertStringContainsString( "await optional( async () => {\n\t\t\tawait click(", $this->generate( array( array( 'click' => '#close', 'optional' => true ) ) ) );
+		$code = $this->generate( array( array( 'click' => '#close', 'optional' => true ) ) );
+		$this->assertStringContainsString( "await rh.step( 1, \"click #close\", async () => {\n\t\t\tawait click(", $code );
+		$this->assertStringContainsString( "\n\t\t}, true );", $code );
+	}
+
+	public function test_reports_the_result_to_the_rehearsal_it_came_from() {
+		$code = Companion_Rehearsal_Playwright::to_playwright(
+			array(
+				'title'      => 'A rehearsal',
+				'id'         => str_repeat( 'c', 64 ),
+				'post_id'    => 42,
+				'site'       => 'https://example.test/',
+				'definition' => array( 'steps' => array( array( 'goto' => '/' ) ) ),
+			)
+		);
+		$this->assertStringContainsString( 'const rh = rehearsal( 42, "' . str_repeat( 'c', 64 ) . '" );', $code );
+		$this->assertStringContainsString( 'test.afterEach( ( {}, info ) => rh.report( info ) );', $code );
+		$this->assertStringContainsString( "'?rest_route=/rehearsal/v1/runs'", $code );
 	}
 
 	public function test_no_page_measuring_without_budgets() {

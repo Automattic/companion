@@ -56,4 +56,50 @@ class ShareTest extends TestCase {
 		$this->assertSame( array(), Companion_Rehearsal_Share::ids_from_bundle_token( '3-7' . substr( $token, strpos( $token, '.' ) ) ) );
 		$this->assertSame( array(), Companion_Rehearsal_Share::ids_from_bundle_token( '3-7-12.' ) );
 	}
+
+	public function test_a_run_link_runs_exactly_its_rehearsals_and_is_not_a_bundle_link() {
+		parse_str( (string) parse_url( Companion_Rehearsal_Share::run_url( array( 3, 7 ), 'task-1' ), PHP_URL_QUERY ), $query );
+		parse_str( (string) parse_url( Companion_Rehearsal_Share::bundle_url( array( 3, 7 ) ), PHP_URL_QUERY ), $bundle );
+
+		$this->assertSame( 'task-1', $query['ref'] );
+		$this->assertSame( array( 3, 7 ), Companion_Rehearsal_Share::ids_from_run_token( $query['run'] ) );
+		$this->assertSame( array(), Companion_Rehearsal_Share::ids_from_run_token( '3-7-8' . substr( $query['run'], strpos( $query['run'], '.' ) ) ) );
+		// A Playwright link given to CI must not start runs in an admin's browser.
+		$this->assertSame( array(), Companion_Rehearsal_Share::ids_from_run_token( $bundle['rehearsal_bundle'] ) );
+	}
+
+	/**
+	 * A share payload for the GitHub block.
+	 *
+	 * @return array
+	 */
+	private function payload() {
+		return array(
+			'title'      => 'Forms: responses list loads',
+			'id'         => str_repeat( 'd', 64 ),
+			'source'     => 'https://example.test/?rehearsal=5.key',
+			'site'       => 'https://example.test/',
+			'definition' => array(
+				'covers' => array( 'packages/forms' ),
+				'steps'  => array( array( 'goto' => '/wp-admin/' ), array( 'waitFor' => '#wpbody' ) ),
+			),
+		);
+	}
+
+	public function test_the_github_block_shows_the_latest_result_of_this_version() {
+		$run   = array( 'hash' => str_repeat( 'd', 64 ), 'status' => 'fail', 'runner' => 'playwright', 'build' => 'WordPress 6.9', 'id' => 233, 'date' => '2026-10-28T12:00:00+00:00' );
+		$block = Companion_Rehearsal_Share::to_github( $this->payload(), $run );
+
+		$this->assertStringStartsWith( "<!-- rehearsal v1 -->\n#### Rehearsal: Forms: responses list loads\n", $block );
+		$this->assertStringContainsString( 'Rehearsal `ddddddd` · 2 steps · covers `packages/forms`', $block );
+		$this->assertStringContainsString( 'Last run: **Failed** in Playwright on WordPress 6.9, run #233, 2026-10-28.', $block );
+		$this->assertStringContainsString( '[JSON](https://example.test/?rehearsal=5.key&format=json)', $block );
+		$this->assertStringContainsString( "```json\n{\n", $block );
+	}
+
+	public function test_the_github_block_does_not_claim_a_result_from_an_older_version() {
+		$run = array( 'hash' => str_repeat( 'e', 64 ), 'status' => 'pass', 'runner' => 'browser', 'build' => 'x', 'id' => 1, 'date' => '2026-10-01' );
+		$this->assertStringContainsString( 'Not run since its last change.', Companion_Rehearsal_Share::to_github( $this->payload(), $run ) );
+		$this->assertStringContainsString( 'Not run since its last change.', Companion_Rehearsal_Share::to_github( $this->payload(), null ) );
+	}
 }

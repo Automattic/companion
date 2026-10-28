@@ -11,9 +11,13 @@ defined( 'ABSPATH' ) || exit;
  * Validates rehearsals and gives them a stable ID.
  */
 final class Companion_Rehearsal_Schema {
-	const STEPS   = array( 'goto', 'waitFor', 'expect', 'expectText', 'expectCount', 'fill', 'click', 'check', 'uncheck', 'selectOption', 'hover', 'press', 'expectNoConsoleErrors', 'snapshot', 'screenshot' );
+	const STEPS   = array( 'goto', 'waitFor', 'expect', 'expectText', 'expectCount', 'fill', 'click', 'check', 'uncheck', 'selectOption', 'hover', 'press', 'expectNoConsoleErrors', 'snapshot', 'screenshot', 'dialog' );
 	// Named after Playwright's expect(locator) matchers, so recipes carry over to a Playwright runner.
 	const MATCHERS = array( 'toBeVisible', 'toHaveText', 'toContainText', 'toHaveCount', 'toBeEnabled', 'toBeDisabled', 'toBeChecked', 'toHaveValue' );
+	// How the next alert, confirm or prompt is answered. Without a "dialog" step it is dismissed, as Playwright does.
+	const DIALOG_ACTIONS = array( 'accept', 'dismiss' );
+	// One plugin slug, or several joined with " or " when any one of them will do.
+	const REQUIRES_PATTERN = '/^[a-z0-9._-]{1,100}( or [a-z0-9._-]{1,100})*$/';
 	// What a rehearsal's "budgets" may limit: times in ms, CLS unitless, weight and JS in compressed bytes.
 	// Page loads are only measured for rehearsals that set a budget.
 	const BUDGET_KEYS = array( 'ttfb', 'fcp', 'lcp', 'cls', 'requests', 'weight', 'js' );
@@ -35,8 +39,8 @@ final class Companion_Rehearsal_Schema {
 		if ( array_key_exists( 'covers', $recipe ) && ! self::is_list_of( $recipe['covers'], '#^[A-Za-z0-9._/*@-]{1,100}$#' ) ) {
 			return '"covers" must be a list of short labels without spaces, such as ["packages/forms"] or ["src/checkout/*"].';
 		}
-		if ( array_key_exists( 'requires', $recipe ) && ! self::is_list_of( $recipe['requires'], '/^[a-z0-9._-]{1,100}$/' ) ) {
-			return '"requires" must be a list of plugin slugs (their folder names), such as ["jetpack"].';
+		if ( array_key_exists( 'requires', $recipe ) && ! self::is_list_of( $recipe['requires'], self::REQUIRES_PATTERN ) ) {
+			return '"requires" must be a list of plugin slugs (their folder names), such as ["jetpack"], or ["jetpack or jetpack-premium-analytics"] when any one will do.';
 		}
 		if ( array_key_exists( 'role', $recipe ) && ( ! is_string( $recipe['role'] ) || ! preg_match( '/^[a-z0-9_-]{1,60}$/', $recipe['role'] ) ) ) {
 			return '"role" must be a role slug, such as "editor".';
@@ -97,6 +101,9 @@ final class Companion_Rehearsal_Schema {
 		if ( array_key_exists( 'screenshot', $step ) && ( ! is_string( $step['screenshot'] ) || ! preg_match( '/^[A-Za-z0-9._-]{1,100}$/', $step['screenshot'] ) || '.' === $step['screenshot'][0] ) ) {
 			return ': "screenshot" must be a file name without a folder, such as "checkout".';
 		}
+		if ( array_key_exists( 'dialog', $step ) && ! in_array( $step['dialog'], self::DIALOG_ACTIONS, true ) ) {
+			return ': "dialog" must be "accept" or "dismiss".';
+		}
 		if ( array_key_exists( 'press', $step ) && ( ! is_string( $step['press'] ) || '' === $step['press'] ) ) {
 			return ': "press" needs a key, such as "Enter" or "Control+A".';
 		}
@@ -141,7 +148,11 @@ final class Companion_Rehearsal_Schema {
 					$ok = is_string( $want ) || is_int( $want ) || is_float( $want );
 					break;
 				default:
-					$ok = is_bool( $want );
+					// false used to pass as true; "not" is the one way to invert a matcher.
+					if ( false === $want ) {
+						return sprintf( ': "%1$s" must be true. To check the opposite, write "%1$s": true, "not": true.', $matchers[0] );
+					}
+					$ok = true === $want;
 			}
 			if ( ! $ok ) {
 				return sprintf( ': "%s" has the wrong kind of value.', $matchers[0] );
@@ -190,13 +201,35 @@ final class Companion_Rehearsal_Schema {
 	}
 
 	/**
-	 * A rehearsal stamped with the format it was written in. One that has a format keeps it.
+	 * A rehearsal stamped with the oldest format that can run it, so older sites only warn about
+	 * rehearsals that use something they lack. One that has a format keeps it.
 	 *
 	 * @param array $recipe Validated rehearsal.
 	 * @return array
 	 */
 	public static function with_format( array $recipe ) {
-		return isset( $recipe['format'] ) ? $recipe : array( 'format' => Companion_Rehearsal::FORMAT ) + $recipe;
+		return isset( $recipe['format'] ) ? $recipe : array( 'format' => self::format_needed( $recipe ) ) + $recipe;
+	}
+
+	/**
+	 * The oldest format that has everything a rehearsal uses. Format 2 added the "dialog" step and
+	 * either-or "requires".
+	 *
+	 * @param array $recipe Validated rehearsal.
+	 * @return int
+	 */
+	public static function format_needed( array $recipe ) {
+		foreach ( (array) ( $recipe['requires'] ?? array() ) as $slug ) {
+			if ( false !== strpos( (string) $slug, ' or ' ) ) {
+				return 2;
+			}
+		}
+		foreach ( (array) ( $recipe['steps'] ?? array() ) as $step ) {
+			if ( is_array( $step ) && array_key_exists( 'dialog', $step ) ) {
+				return 2;
+			}
+		}
+		return 1;
 	}
 
 	/**
@@ -210,18 +243,36 @@ final class Companion_Rehearsal_Schema {
 	}
 
 	/**
-	 * Recipe ID. It leaves "format" out, so stamping a format on an existing rehearsal keeps its results.
+	 * Recipe ID. It leaves "format" out, so stamping a format on an existing rehearsal keeps its results,
+	 * and sorts object keys, so `{ "fill", "value" }` and `{ "value", "fill" }` are the same rehearsal.
 	 *
 	 * @param string $content Canonical recipe JSON.
 	 * @return string
 	 */
 	public static function hash( $content ) {
 		$recipe = json_decode( $content, true );
-		if ( is_array( $recipe ) && array_key_exists( 'format', $recipe ) ) {
+		if ( is_array( $recipe ) ) {
 			unset( $recipe['format'] );
-			$content = self::canonical( $recipe );
+			$content = self::canonical( self::sort_keys( $recipe ) );
 		}
 		return hash( 'sha256', $content );
+	}
+
+	/**
+	 * Objects with their keys sorted, at every depth. Lists keep their order: step order matters.
+	 *
+	 * @param mixed $value Decoded JSON.
+	 * @return mixed
+	 */
+	private static function sort_keys( $value ) {
+		if ( ! is_array( $value ) ) {
+			return $value;
+		}
+		$value = array_map( array( __CLASS__, 'sort_keys' ), $value );
+		if ( ! self::is_list( $value ) ) {
+			ksort( $value, SORT_STRING );
+		}
+		return $value;
 	}
 
 	/**

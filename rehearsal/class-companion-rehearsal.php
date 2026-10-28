@@ -17,13 +17,13 @@ unset( $companion_rehearsal_part );
  * Names shared by every part of Rehearsal, and the hooks that connect them.
  */
 final class Companion_Rehearsal {
-	const VERSION = '0.19.0';
+	const VERSION = '0.20.0';
 	const RECIPE  = 'rehearsal';
 	const RUN     = 'rehearsal_run';
 	const SLUG    = 'rehearsal';
 	// The newest rehearsal format this code can run. Raise it when rehearsals gain a step, matcher or
 	// setting that older versions would not understand, so those versions can warn.
-	const FORMAT = 1;
+	const FORMAT = 2;
 
 	/**
 	 * A file in the rehearsal folder, wherever the class asking lives.
@@ -61,5 +61,9 @@ final class Companion_Rehearsal {
 		add_action( 'admin_post_rehearsal_seed', array( Companion_Rehearsal_Examples::class, 'seed' ) );
 		add_filter( 'wp_client_side_media_processing_enabled', array( Companion_Rehearsal_Admin::class, 'no_isolation_in_frame' ), 100 );
 		add_filter( 'determine_current_user', array( Companion_Rehearsal_Roles::class, 'act_as_role' ), 100 );
+		if ( defined( 'WP_CLI' ) && WP_CLI ) {
+			require_once __DIR__ . '/includes/class-companion-rehearsal-command.php';
+			WP_CLI::add_command( 'rehearsal', Companion_Rehearsal_Command::class );
+		}
 	}
 }

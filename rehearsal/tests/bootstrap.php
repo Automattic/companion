@@ -27,6 +27,14 @@ function home_url( $path = '' ) {
 	return 'https://example.test' . $path;
 }
 
+function admin_url( $path = '' ) {
+	return 'https://example.test/wp-admin/' . $path;
+}
+
+function wp_parse_url( $url, $component = -1 ) {
+	return parse_url( $url, $component );
+}
+
 function add_query_arg( $key, $value, $url ) {
 	return $url . ( false === strpos( $url, '?' ) ? '?' : '&' ) . $key . '=' . $value;
 }

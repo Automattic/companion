@@ -12,6 +12,8 @@
 .rh-pill.queued { background: #f0edfc; color: #5b3fc2; }
 .rh-pill.running { background: #2271b1; color: #fff; }
 .rh-error { color: #b32d2e; margin: 6px 0; }
+.rh-autorun { margin: 8px 0; padding: 6px 10px; border-inline-start: 4px solid #2271b1; background: #fff; }
+.rh-autorun.pass { border-color: #00a32a; } .rh-autorun.fail, .rh-autorun.error { border-color: #d63638; } .rh-autorun.queued { border-color: #5b3fc2; }
 .rh-log { margin: 6px 0 4px; padding: 0; list-style: none; font: 12px/1.6 Menlo, Consolas, monospace; }
 .rh-log li { display: grid; grid-template-columns: 16px minmax(0, 1fr) auto; gap: 8px; }
 .rh-log li.ok > span:first-child { color: #00a32a; }

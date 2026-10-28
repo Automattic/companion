@@ -6,8 +6,35 @@
 	} catch ( e ) {
 		return;
 	}
-	var box = ( window.__rehearsal = { errors: [] } );
+	var box = ( window.__rehearsal = { errors: [], dialogs: [] } );
 	var leaving = false;
+
+	// A real dialog would stop the runner until someone clicked it. Answer it the way the rehearsal's
+	// last "dialog" step said, once, or else dismiss it, which is what Playwright does.
+	function answer( type, message, fallback ) {
+		var step = null;
+		try {
+			step = window.parent.__rehearsalDialog || null;
+			window.parent.__rehearsalDialog = null;
+		} catch ( e ) {}
+		var accept = !! step && step.action === 'accept';
+		box.dialogs.push( { type: type, message: String( message === undefined ? '' : message ).slice( 0, 300 ), action: accept ? 'accept' : 'dismiss', answered: !! step } );
+		if ( type === 'confirm' ) {
+			return accept;
+		}
+		if ( type === 'prompt' ) {
+			return accept ? String( step.value !== undefined ? step.value : fallback !== undefined ? fallback : '' ) : null;
+		}
+	}
+	window.alert = function ( message ) {
+		answer( 'alert', message );
+	};
+	window.confirm = function ( message ) {
+		return answer( 'confirm', message );
+	};
+	window.prompt = function ( message, fallback ) {
+		return answer( 'prompt', message, fallback );
+	};
 
 	// Marks this frame's same-origin requests, so a rehearsal's role applies to them and not to other tabs'.
 	// Same-origin only: a custom header on a cross-origin request would need a CORS preflight.
