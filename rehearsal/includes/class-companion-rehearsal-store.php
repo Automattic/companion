@@ -75,7 +75,8 @@ final class Companion_Rehearsal_Store {
 		}
 		return array(
 			'id'       => $post->ID,
-			'title'    => get_the_title( $post ),
+			// The raw title: get_the_title() texturizes it into HTML entities, and every place that shows it escapes it.
+			'title'    => $post->post_title,
 			'hash'     => Companion_Rehearsal_Schema::hash( $post->post_content ),
 			'recipe'   => $recipe,
 			'shareUrl' => Companion_Rehearsal_Share::share_url( $post->ID ),

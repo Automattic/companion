@@ -40,7 +40,7 @@ final class Companion_Rehearsal_Share {
 	public static function share_payload( $post ) {
 		return array(
 			'format' => 'rehearsal',
-			'title'  => get_the_title( $post ),
+			'title'  => $post->post_title, // Plain text, not get_the_title()'s HTML; see Store::recipe_for_js().
 			'id'     => Companion_Rehearsal_Schema::hash( $post->post_content ),
 			// This site's number for it, so a Playwright test can save its result here as a run.
 			'post_id' => $post->ID,

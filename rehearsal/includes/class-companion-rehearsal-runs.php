@@ -187,7 +187,7 @@ final class Companion_Rehearsal_Runs {
 			'id'        => $run->ID,
 			'recipeId'  => (int) $run->post_parent,
 			// The run's own title ("<recipe>: <status>") outlives a permanently deleted recipe.
-			'title'     => get_post( $run->post_parent ) ? get_the_title( $run->post_parent ) : preg_replace( '/: (pass|fail|queued)$/', '', $run->post_title ) . ' (rehearsal deleted)',
+			'title'     => get_post( $run->post_parent ) ? get_post( $run->post_parent )->post_title : preg_replace( '/: (pass|fail|queued)$/', '', $run->post_title ) . ' (rehearsal deleted)',
 			'status'    => get_post_meta( $run->ID, '_rehearsal_status', true ),
 			// Recomputed from the steps the run used, so runs saved before IDs ignored key order still match.
 			'hash'      => '' === $recipe ? get_post_meta( $run->ID, '_rehearsal_recipe_hash', true ) : Companion_Rehearsal_Schema::hash( $recipe ),
