@@ -293,6 +293,26 @@ class Companion_JN_Ledger {
 		$report_card_url = self::url_field( $record, 'report_card_url' );
 		$edit_url        = current_user_can( 'manage_options' ) ? admin_url( 'tools.php?page=' . self::PAGE_SLUG ) : '';
 
+		// With no PR set by hand, the Jetpack Beta branches say what the site is for, each with the PR worked out from it.
+		$set_by_hand  = in_array( false, wp_list_pluck( $prs, 'detected' ), true );
+		$jetpack_beta = $set_by_hand ? array() : self::jetpack_beta( $record );
+
+		// A detected PR shown next to its branch isn't listed again.
+		$shown = array();
+		foreach ( $jetpack_beta as $build ) {
+			if ( null !== $build['pr'] ) {
+				$shown[] = $build['pr']['url'];
+			}
+		}
+		$prs = array_values(
+			array_filter(
+				$prs,
+				function ( $pr ) use ( $shown ) {
+					return ! in_array( $pr['url'], $shown, true );
+				}
+			)
+		);
+
 		if ( '' !== $label || '' !== $notes ) {
 			?>
 			<p class="jn_ledger_about">
@@ -306,6 +326,27 @@ class Companion_JN_Ledger {
 			<?php
 		}
 
+		if ( $jetpack_beta ) {
+			?>
+			<p class="jn_ledger_jetpack_beta">
+				<strong><?php echo esc_html__( 'Jetpack Beta:', 'companion' ); ?></strong>
+				<?php
+				$items = array();
+				foreach ( $jetpack_beta as $build ) {
+					$item  = count( $jetpack_beta ) > 1 ? esc_html( $build['plugin'] ) . ' ' : '';
+					$item .= '<code>' . esc_html( $build['branch'] ) . '</code>';
+					if ( null !== $build['pr'] ) {
+						$item .= ' &rarr; ' . self::pr_link( $build['pr'] );
+					}
+					$items[] = $item;
+				}
+				echo implode( ', ', $items ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Escaped above.
+				?>
+				<em><?php echo esc_html__( '(detected)', 'companion' ); ?></em>
+			</p>
+			<?php
+		}
+
 		if ( $prs || $linear_issues ) {
 			?>
 			<p class="jn_ledger_refs">
@@ -314,11 +355,9 @@ class Companion_JN_Ledger {
 					<?php
 					$links = array();
 					foreach ( $prs as $pr ) {
-						$links[] = '' === $pr['url']
-							? esc_html( $pr['text'] )
-							: '<a href="' . esc_url( $pr['url'] ) . '" target="_blank" rel="noopener noreferrer">' . esc_html( $pr['text'] ) . '</a>';
+						$links[] = self::pr_link( $pr ) . ( $pr['detected'] ? ' ' . esc_html__( '(detected)', 'companion' ) : '' );
 					}
-					echo implode( ', ', $links ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Escaped above.
+					echo implode( ', ', $links ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Escaped by pr_link() and above.
 					?>
 				<?php endif; ?>
 				<?php if ( $linear_issues ) : ?>
@@ -425,6 +464,9 @@ class Companion_JN_Ledger {
 												<?php echo esc_html( $pr['text'] ); ?>
 											<?php else : ?>
 												<a href="<?php echo esc_url( $pr['url'] ); ?>" target="_blank" rel="noopener noreferrer"><?php echo esc_html( $pr['text'] ); ?></a>
+											<?php endif; ?>
+											<?php if ( $pr['detected'] ) : ?>
+												<?php echo esc_html__( '(detected from the Jetpack Beta branch)', 'companion' ); ?>
 											<?php endif; ?>
 										</li>
 									<?php endforeach; ?>
@@ -884,11 +926,62 @@ class Companion_JN_Ledger {
 				continue;
 			}
 			$prs[] = array(
-				'text' => $text,
-				'url'  => $url,
+				'text'     => $text,
+				'url'      => $url,
+				'detected' => isset( $pr['detected'] ) && true === $pr['detected'],
 			);
 		}
 		return $prs;
+	}
+
+	/**
+	 * The record's Jetpack Beta branches, each with the PR wpcom worked out from it, if any.
+	 * Records from before wpcom reported them have none.
+	 *
+	 * @param array $record Ledger record.
+	 * @return array[] `plugin`, `branch`, and `pr` (link text plus URL, as prs() gives) or null.
+	 */
+	private static function jetpack_beta( array $record ) {
+		if ( empty( $record['jetpack_beta'] ) || ! is_array( $record['jetpack_beta'] ) ) {
+			return array();
+		}
+
+		$builds = array();
+		foreach ( $record['jetpack_beta'] as $build ) {
+			if ( ! is_array( $build ) ) {
+				continue;
+			}
+			$branch = self::string_field( $build, 'branch' );
+			if ( '' === $branch ) {
+				continue;
+			}
+			$url = self::url_field( $build, 'pr_url' );
+			$pr  = null;
+			if ( '' !== $url ) {
+				$pr = array(
+					'text' => preg_match( '#^https://[^/]+/([^/]+)/([^/]+)/pull/(\d+)$#', $url, $matches ) ? "$matches[1]/$matches[2]#$matches[3]" : $url,
+					'url'  => $url,
+				);
+			}
+			$builds[] = array(
+				'plugin' => self::string_field( $build, 'plugin' ),
+				'branch' => $branch,
+				'pr'     => $pr,
+			);
+		}
+		return $builds;
+	}
+
+	/**
+	 * A PR as a link, or as plain text when it has no http(s) URL.
+	 *
+	 * @param array $pr `text` and `url`, as prs() gives.
+	 * @return string HTML.
+	 */
+	private static function pr_link( array $pr ) {
+		return '' === $pr['url']
+			? esc_html( $pr['text'] )
+			: '<a href="' . esc_url( $pr['url'] ) . '" target="_blank" rel="noopener noreferrer">' . esc_html( $pr['text'] ) . '</a>';
 	}
 
 	/**
