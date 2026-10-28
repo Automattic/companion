@@ -120,6 +120,22 @@ class JNLedgerNoticeTest extends TestCase {
 		$this->assertStringNotContainsString( '(detected)', $html );
 	}
 
+	public function test_only_a_boolean_true_marks_a_pr_detected() {
+		$html = $this->render(
+			array(
+				'prs'          => array(
+					array_merge( $this->detected_pr(), array( 'detected' => 'false' ) ),
+					array_merge( $this->detected_pr( 5 ), array( 'detected' => 1 ) ),
+				),
+				'jetpack_beta' => array( $this->build() ),
+			)
+		);
+
+		$this->assertStringNotContainsString( 'Jetpack Beta', $html );
+		$this->assertStringContainsString( '>Automattic/jetpack#123</a>, <a', $html );
+		$this->assertStringNotContainsString( '(detected)', $html );
+	}
+
 	public function test_detected_pr_for_another_branch_stays_in_the_prs_line() {
 		$html = $this->render(
 			array(

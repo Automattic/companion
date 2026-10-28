@@ -928,7 +928,7 @@ class Companion_JN_Ledger {
 			$prs[] = array(
 				'text'     => $text,
 				'url'      => $url,
-				'detected' => ! empty( $pr['detected'] ),
+				'detected' => isset( $pr['detected'] ) && true === $pr['detected'],
 			);
 		}
 		return $prs;
