@@ -577,7 +577,7 @@
 
 	function filterRuns( changes ) {
 		Object.assign( state.filters, changes );
-		loadRuns( false );
+		return loadRuns( false );
 	}
 
 	function renderHistory() {
@@ -722,9 +722,19 @@
 
 	function showRunsFor( changes ) {
 		if ( modal.open ) modal.close();
-		filterRuns( changes );
 		document.getElementById( 'rh-runs-heading' ).scrollIntoView( { behavior: 'smooth' } );
+		return filterRuns( changes );
 	}
+
+	// #run-<id> in the URL shows that run in Recent runs with its log open, so a run's result can be linked to.
+	async function showLinkedRun() {
+		const m = window.location.hash.match( /^#run-(\d+)$/ );
+		if ( ! m ) return;
+		await showRunsFor( { search: '#' + m[ 1 ], recipe: '', status: '', user: '' } );
+		const details = document.querySelector( '#rh-history details' );
+		if ( details ) details.open = true;
+	}
+	window.addEventListener( 'hashchange', showLinkedRun );
 
 	function upsertRecipe( saved ) {
 		const existing = state.recipes.find( ( r ) => r.id === saved.id );
@@ -1586,23 +1596,27 @@
 			root.dataset.runIds = runIds.join( ',' );
 			line.hidden = false;
 			line.className = `rh-autorun ${ status }`;
-			line.textContent = text;
+			line.innerHTML = text;
 		};
-		if ( error ) return report( 'error', error );
+		if ( error ) return report( 'error', esc( error ) );
 		const picked = ids.map( ( id ) => state.recipes.find( ( r ) => r.id === id ) );
 		const unusable = ids.filter( ( id, i ) => ! picked[ i ] || blocked( picked[ i ] ) );
 		if ( unusable.length ) {
-			return report( 'error', `Run link: rehearsal ${ unusable.join( ', ' ) } is deleted or can't run on this site, so nothing ran.` );
+			return report( 'error', esc( `Run link: rehearsal ${ unusable.join( ', ' ) } is deleted or can't run on this site, so nothing ran.` ) );
 		}
 		const count = `${ picked.length } rehearsal${ picked.length === 1 ? '' : 's' }`;
-		report( 'running', `Run link: running ${ count }${ ref ? ` (ref ${ ref })` : '' }…` );
+		report( 'running', esc( `Run link: running ${ count }${ ref ? ` (ref ${ ref })` : '' }…` ) );
 		await runRecipes( picked, ref );
 		const results = picked.map( ( r ) => ( r.live ? 'error' : r.lastRun.status ) );
 		const status = [ 'error', 'fail', 'queued' ].find( ( s ) => results.includes( s ) ) || 'pass';
 		const runIds = picked.filter( ( r ) => ! r.live ).map( ( r ) => r.lastRun.id );
 		const outcome = { pass: 'all passed', fail: 'some failed', queued: 'some need Playwright', error: 'some could not be saved' }[ status ];
-		report( status, `Run link: ran ${ count }, ${ outcome }. Saved as ${ runIds.map( ( i ) => '#' + i ).join( ', ' ) || 'nothing' }${ ref ? `, ref ${ ref }` : '' }.`, runIds );
+		// Each run links to its result in Recent runs.
+		const saved = runIds.map( ( i ) => `<a href="#run-${ Number( i ) }">run #${ Number( i ) }</a>` ).join( ', ' ) || 'nothing';
+		report( status, `${ esc( `Run link: ran ${ count }, ${ outcome }.` ) } Saved as ${ saved }${ ref ? esc( `, ref ${ ref }` ) : '' }.`, runIds );
 	}
+
+	showLinkedRun();
 
 	if ( data.autorun ) {
 		// Drop &run= so a reload doesn't run it again.
