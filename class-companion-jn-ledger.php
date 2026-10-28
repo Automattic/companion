@@ -296,9 +296,22 @@ class Companion_JN_Ledger {
 		// With no PR set by hand, the Jetpack Beta branches say what the site is for, each with the PR worked out from it.
 		$set_by_hand  = in_array( false, wp_list_pluck( $prs, 'detected' ), true );
 		$jetpack_beta = $set_by_hand ? array() : self::jetpack_beta( $record );
-		if ( $jetpack_beta ) {
-			$prs = array();
+
+		// A detected PR shown next to its branch isn't listed again.
+		$shown = array();
+		foreach ( $jetpack_beta as $build ) {
+			if ( null !== $build['pr'] ) {
+				$shown[] = $build['pr']['url'];
+			}
 		}
+		$prs = array_values(
+			array_filter(
+				$prs,
+				function ( $pr ) use ( $shown ) {
+					return ! in_array( $pr['url'], $shown, true );
+				}
+			)
+		);
 
 		if ( '' !== $label || '' !== $notes ) {
 			?>
@@ -451,6 +464,9 @@ class Companion_JN_Ledger {
 												<?php echo esc_html( $pr['text'] ); ?>
 											<?php else : ?>
 												<a href="<?php echo esc_url( $pr['url'] ); ?>" target="_blank" rel="noopener noreferrer"><?php echo esc_html( $pr['text'] ); ?></a>
+											<?php endif; ?>
+											<?php if ( $pr['detected'] ) : ?>
+												<?php echo esc_html__( '(detected from the Jetpack Beta branch)', 'companion' ); ?>
 											<?php endif; ?>
 										</li>
 									<?php endforeach; ?>
