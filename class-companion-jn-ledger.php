@@ -412,7 +412,12 @@ class Companion_JN_Ledger {
 				'message' => __( 'Nothing changed, so nothing was saved.', 'companion' ),
 			);
 		} elseif ( ! is_wp_error( $response ) && 200 === $response['code'] ) {
-			delete_site_transient( self::RECORD_CACHE_KEY );
+			// wpcom answers with the updated record, so cache that rather than reading it again.
+			if ( is_array( $response['body'] ) ) {
+				set_site_transient( self::RECORD_CACHE_KEY, array( 'record' => $response['body'] ), self::RECORD_CACHE_TTL );
+			} else {
+				delete_site_transient( self::RECORD_CACHE_KEY );
+			}
 			$notice = array(
 				'type'    => 'success',
 				'message' => __( 'Saved.', 'companion' ),
@@ -481,12 +486,8 @@ class Companion_JN_Ledger {
 			fastcgi_finish_request();
 		}
 
-		if ( get_site_transient( self::REPORT_SKIP_KEY ) ) {
-			return;
-		}
 		$installed = self::get_installed();
 		if ( null === $installed ) {
-			set_site_transient( self::REPORT_SKIP_KEY, 1, MINUTE_IN_SECONDS );
 			return;
 		}
 
@@ -513,7 +514,8 @@ class Companion_JN_Ledger {
 	 * The running-state report: whether Jetpack Beta is active, and every plugin it manages
 	 * that is running a dev build.
 	 *
-	 * @return array|null Null when Jetpack Beta is active but its plugin list can't be read.
+	 * @return array|null Null when Jetpack Beta is active but its plugin list can't be read,
+	 *                    or couldn't be in the last minute.
 	 */
 	public static function get_installed() {
 		if ( ! function_exists( 'is_plugin_active' ) ) {
@@ -531,6 +533,10 @@ class Companion_JN_Ledger {
 			);
 		}
 
+		if ( get_site_transient( self::REPORT_SKIP_KEY ) ) {
+			return null;
+		}
+
 		$plugins = array();
 		try {
 			foreach ( \Automattic\JetpackBeta\Plugin::get_all_plugins() as $slug => $plugin ) {
@@ -544,6 +550,7 @@ class Companion_JN_Ledger {
 				$plugins[] = array_merge( array( 'plugin' => (string) $slug ), $info );
 			}
 		} catch ( Throwable $e ) {
+			set_site_transient( self::REPORT_SKIP_KEY, 1, MINUTE_IN_SECONDS );
 			return null;
 		}
 
