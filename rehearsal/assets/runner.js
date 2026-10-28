@@ -39,13 +39,16 @@
 			<div class="rh-progress-track" aria-hidden="true"><span id="rh-progress-fill"></span></div>
 		</div>
 		<div class="rh-toolbar">
-			<button type="button" class="button button-primary" id="rh-run">Run selected</button>
-			<button type="button" class="button" id="rh-run-failed">Run failed</button>
-			<button type="button" class="button" id="rh-playwright" title="Export the selected rehearsals as one Playwright test file">Run in Playwright</button>
-			<span class="rh-toolbar-sep" aria-hidden="true"></span>
-			<button type="button" class="button" id="rh-add">Add rehearsal</button>
-			<button type="button" class="button" id="rh-install">Install from link</button>
-			<span class="rh-summary" id="rh-summary"></span>
+			<div class="rh-toolbar-group">
+				<button type="button" class="button button-primary" id="rh-run">Run selected</button>
+				<button type="button" class="button" id="rh-run-failed">Run failed</button>
+				<span class="rh-estimate" id="rh-estimate"></span>
+			</div>
+			<div class="rh-toolbar-group">
+				<button type="button" class="button rh-quiet" id="rh-playwright" title="Export the selected rehearsals as one Playwright test file">Run in Playwright</button>
+				<button type="button" class="button rh-quiet" id="rh-install">Install from link</button>
+				<button type="button" class="button" id="rh-add">Add rehearsal</button>
+			</div>
 		</div>
 		<p class="rh-autorun" id="rh-autorun" role="status" hidden></p>
 		<div class="rh-layout">
@@ -523,34 +526,18 @@
 	}
 
 	function renderSummary() {
-		const counts = {};
-		state.recipes.forEach( ( r ) => {
-			const [ cls ] = statusOf( r );
-			if ( cls && cls !== 'running' ) counts[ cls ] = ( counts[ cls ] || 0 ) + 1;
-		} );
-		const order = [
-			[ 'pass', 'passed' ],
-			[ 'fail', 'failed' ],
-			[ 'stale', 'stale' ],
-			[ 'queued', 'need Playwright' ],
-		];
-		const parts = order
-			.filter( ( [ k ] ) => counts[ k ] )
-			.map( ( [ k, word ] ) => `<span class="rh-pill ${ k }">${ counts[ k ] } ${ word }</span>` );
-		const slow = state.recipes.filter( ( r ) => r.recipe.budgets && r.lastRun && r.lastRun.hash === r.hash && slowPages( r.lastRun ) ).length;
-		if ( slow ) parts.push( `<span class="rh-pill stale" title="Rehearsals whose last run had page loads over their budget">${ slow } over budget</span>` );
-		const needs = state.recipes.filter( blocked ).length;
-		if ( needs ) parts.push( `<span class="rh-pill" title="Rehearsals whose required plugins or theme are not active here">${ needs } can't run here</span>` );
-		document.getElementById( 'rh-summary' ).innerHTML = parts.join( ' ' );
 		const selected = state.recipes.filter( ( r ) => r.checked && ! blocked( r ) );
 		runButton.disabled = state.running || ! selected.length;
 		const expected = totalEstimate( selected );
-		runButton.textContent = state.running ? 'Running…' : `Run selected (${ selected.length }${ selected.length ? `, about ${ duration( expected.ms ) }` : '' })`;
-		runButton.title = expected.guessed ? 'Estimated from the last runs; rehearsals that have never run are guessed.' : 'Estimated from the last runs.';
+		runButton.textContent = state.running ? 'Running…' : `Run ${ selected.length } selected`;
+		// While running, the progress bar has the time left.
+		const estimate = document.getElementById( 'rh-estimate' );
+		estimate.textContent = ! state.running && selected.length ? `About ${ duration( expected.ms ) }` : '';
+		estimate.title = expected.guessed ? 'From the last runs; rehearsals that have never run are guessed.' : 'From the last runs.';
 		renderFrameTools();
 		const failed = failedRecipes().length;
 		runFailedButton.disabled = state.running || ! failed;
-		runFailedButton.textContent = `Run failed (${ failed })`;
+		runFailedButton.textContent = failed ? `Run ${ failed } failed` : 'Run failed';
 	}
 
 	const hasFilters = () => Object.values( state.filters ).some( Boolean );

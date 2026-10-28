@@ -2,8 +2,13 @@
 .rh { --rh-accent: var(--wp-admin-theme-color, #3858e9); }
 .rh-build { color: #50575e; }
 .rh-empty { max-width: 640px; background: #fff; border: 1px solid #c3c4c7; padding: 4px 16px 16px; }
-.rh-toolbar { display: flex; flex-wrap: wrap; gap: 12px 20px; align-items: center; margin-block: 16px 12px; }
-.rh-summary { display: flex; flex-wrap: wrap; gap: 6px; }
+.rh-toolbar { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 12px; align-items: center; margin-block: 16px 12px; }
+.rh-toolbar-group { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.rh-toolbar .button { margin: 0; }
+/* Secondary actions: no border until hovered, so the run buttons lead. */
+.rh-toolbar .rh-quiet { border-color: transparent; background: transparent; }
+.rh-toolbar .rh-quiet:hover, .rh-toolbar .rh-quiet:focus { border-color: var(--rh-accent); }
+.rh-estimate { margin-inline-start: 4px; color: #646970; font-size: 13px; font-variant-numeric: tabular-nums; }
 .rh-meta, .rh-muted { color: #646970; font-size: 12px; }
 .rh-recipes td, .rh-recipes th { vertical-align: middle; }
 .rh-recipes .rh-detail td { padding-block-start: 0; }
@@ -23,7 +28,6 @@
 .rh-log .msg { overflow-wrap: anywhere; }
 .rh-log .ms { color: #8c8f94; font-variant-numeric: tabular-nums; }
 .rh-history summary { cursor: pointer; }
-.rh-toolbar-sep { inline-size: 1px; align-self: stretch; background: #dcdcde; }
 .rh-title { font-weight: 600; font-size: 14px; text-align: start; }
 
 .rh-modal { inline-size: min(880px, 94vw); max-block-size: 90vh; padding: 0; border: 1px solid #c3c4c7; border-radius: 4px; box-shadow: 0 10px 40px rgba(0, 0, 0, 0.25); }

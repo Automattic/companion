@@ -22,7 +22,7 @@ latest result failed.
 ![A run in progress: the frame shows the page the current step is on](screenshots/running.png)
 
 While a run goes, a bar at the top shows which rehearsal and step it is on, the time so far, and about
-how long is left. **Run selected** shows the estimate before you start. Estimates come from each
+how long is left. Before you start, the estimate shows next to **Run selected**. Estimates come from each
 rehearsal's last run: the whole run when it passed, its pace per step when it stopped early (failed
 steps don't count, since they mostly wait out a timeout), and a guess from the other rehearsals when it
 has never run.
