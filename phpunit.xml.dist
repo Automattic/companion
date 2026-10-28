@@ -1,6 +1,6 @@
 <?xml version="1.0"?>
 <phpunit
-	bootstrap="rehearsal/tests/bootstrap.php"
+	bootstrap="tests/bootstrap.php"
 	colors="true"
 	beStrictAboutOutputDuringTests="true"
 	failOnRisky="true"
@@ -8,6 +8,9 @@
 	<testsuites>
 		<testsuite name="rehearsal">
 			<directory suffix="Test.php">rehearsal/tests</directory>
+		</testsuite>
+		<testsuite name="jn-ledger">
+			<directory suffix="Test.php">tests</directory>
 		</testsuite>
 	</testsuites>
 </phpunit>
