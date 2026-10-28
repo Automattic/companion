@@ -66,6 +66,11 @@ if ( defined( 'IS_ATOMIC_JN' ) && IS_ATOMIC_JN && class_exists('Atomic_Persisten
 
 }
 
+// The site's record in the Jurassic Ninja ledger on WordPress.com. Only active on WP.cloud Jurassic.Ninja sites.
+require_once __DIR__ . '/class-companion-jn-ledger.php';
+Companion_JN_Ledger::init();
+register_deactivation_hook( __FILE__, array( 'Companion_JN_Ledger', 'unschedule_report' ) );
+
 /**
  * Reset update_core permission that is removed on WP.cloud
  * @param $all
@@ -222,6 +227,11 @@ function companion_admin_notices() {
                 }
                 ?>
 		</p>
+		<?php
+		if ( class_exists( 'Companion_JN_Ledger' ) ) {
+			Companion_JN_Ledger::render_notice_section();
+		}
+		?>
 		<p>
 			<strong>User:</strong> <code id="jurassic_username" class="jurassic_ninja_field">demo</code>
 			<code id="jurassic_password" class="jurassic_ninja_field"><?php echo esc_html( $admin_password ); ?></code>
