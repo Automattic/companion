@@ -38,13 +38,18 @@ class Companion_JN_Ledger {
 	const RECORD_CACHE_KEY = 'companion_jn_ledger';
 
 	/**
-	 * How long, in seconds, the record (or its absence) is cached.
+	 * How long, in seconds, the record (or its absence) is used before it is read again.
 	 */
 	const RECORD_CACHE_TTL = 300;
 
 	/**
-	 * Site transient holding a hash of the last report wpcom answered, so an unchanged report
-	 * is not sent again within REPORT_DEDUPE_TTL.
+	 * How long, in seconds, a record is kept to stand in when reading it again fails.
+	 */
+	const RECORD_STALE_TTL = 3600;
+
+	/**
+	 * Site transient holding a hash of the last report, so an unchanged report is not sent
+	 * again within REPORT_DEDUPE_TTL once wpcom has answered it, or within a minute of failing.
 	 */
 	const REPORT_HASH_KEY = 'companion_jn_ledger_report';
 
@@ -177,8 +182,8 @@ class Companion_JN_Ledger {
 	 *
 	 * The absence of a record is cached too, so a site whose wpcom has no ledger endpoints
 	 * makes one request every few minutes rather than one per admin page. Only a 403 or 404
-	 * means there is no ledger; after a timeout, rate limit or server error, a record already
-	 * cached keeps being shown, and otherwise the read is retried in a minute.
+	 * means there is no ledger. After a timeout, rate limit or server error, the last record
+	 * read in the past hour keeps being shown, and the read is retried in a minute.
 	 *
 	 * @param bool $fresh Skip the cache.
 	 * @return array|null The record, or null when there isn't one or it can't be read.
@@ -189,27 +194,53 @@ class Companion_JN_Ledger {
 		}
 
 		$cached = get_site_transient( self::RECORD_CACHE_KEY );
-		$cached = is_array( $cached ) && array_key_exists( 'record', $cached ) ? $cached : null;
-		if ( ! $fresh && null !== $cached ) {
+		$cached = is_array( $cached ) && isset( $cached['fetched_at'], $cached['fresh_until'] ) && array_key_exists( 'record', $cached ) ? $cached : null;
+		if ( ! $fresh && null !== $cached && time() < $cached['fresh_until'] ) {
 			return $cached['record'];
 		}
 
 		$response = self::request();
 		$code     = is_wp_error( $response ) ? 0 : $response['code'];
 		if ( 200 === $code && is_array( $response['body'] ) ) {
-			set_site_transient( self::RECORD_CACHE_KEY, array( 'record' => $response['body'] ), self::RECORD_CACHE_TTL );
+			self::cache_record( $response['body'], self::RECORD_CACHE_TTL );
 			return $response['body'];
 		}
 		if ( 403 === $code || 404 === $code ) {
-			set_site_transient( self::RECORD_CACHE_KEY, array( 'record' => null ), self::RECORD_CACHE_TTL );
+			self::cache_record( null, self::RECORD_CACHE_TTL );
 			return null;
 		}
 
-		if ( null !== $cached && null !== $cached['record'] ) {
+		if ( null !== $cached && null !== $cached['record'] && time() - $cached['fetched_at'] < self::RECORD_STALE_TTL ) {
+			self::cache_record( $cached['record'], MINUTE_IN_SECONDS, $cached['fetched_at'] );
 			return $cached['record'];
 		}
-		set_site_transient( self::RECORD_CACHE_KEY, array( 'record' => null ), MINUTE_IN_SECONDS );
+		self::cache_record( null, MINUTE_IN_SECONDS );
 		return null;
+	}
+
+	/**
+	 * Caches the record, or its absence, for get_record().
+	 *
+	 * @param array|null $record     The record, or null for none.
+	 * @param int        $fresh_for  Seconds before get_record() reads it again.
+	 * @param int|null   $fetched_at When the record was read from wpcom; now if null.
+	 */
+	private static function cache_record( $record, $fresh_for, $fetched_at = null ) {
+		$now        = time();
+		$fetched_at = null === $fetched_at ? $now : $fetched_at;
+
+		// A record is kept until it is too old to stand in for a failed read; its absence only until it is read again.
+		$expires_in = null === $record ? $fresh_for : max( $fresh_for, $fetched_at + self::RECORD_STALE_TTL - $now );
+
+		set_site_transient(
+			self::RECORD_CACHE_KEY,
+			array(
+				'record'      => $record,
+				'fetched_at'  => $fetched_at,
+				'fresh_until' => $now + $fresh_for,
+			),
+			$expires_in
+		);
 	}
 
 	/**
@@ -414,7 +445,7 @@ class Companion_JN_Ledger {
 		} elseif ( ! is_wp_error( $response ) && 200 === $response['code'] ) {
 			// wpcom answers with the updated record, so cache that rather than reading it again.
 			if ( is_array( $response['body'] ) ) {
-				set_site_transient( self::RECORD_CACHE_KEY, array( 'record' => $response['body'] ), self::RECORD_CACHE_TTL );
+				self::cache_record( $response['body'], self::RECORD_CACHE_TTL );
 			} else {
 				delete_site_transient( self::RECORD_CACHE_KEY );
 			}
@@ -456,7 +487,7 @@ class Companion_JN_Ledger {
 	 * Removes the hourly report.
 	 */
 	public static function unschedule_report() {
-		wp_clear_scheduled_hook( self::REPORT_CRON_HOOK );
+		wp_unschedule_hook( self::REPORT_CRON_HOOK );
 	}
 
 	/**
@@ -473,8 +504,8 @@ class Companion_JN_Ledger {
 
 	/**
 	 * Reports the running Jetpack Beta builds, unless wpcom answered the same report in the
-	 * last five minutes. Errors are otherwise ignored: the next trigger, or the hourly event,
-	 * tries again.
+	 * last five minutes or it failed in the last minute. A failed report is retried about a
+	 * minute later.
 	 */
 	public static function send_report() {
 		/*
@@ -503,10 +534,21 @@ class Companion_JN_Ledger {
 			array( 'timeout' => self::REPORT_TIMEOUT )
 		);
 
-		// Stored, or refused for good (403, 404). A timeout, rate limit or server error is retried.
+		// Stored, or refused for good: invalid (400), or not from this site (403, 404).
 		$code = is_wp_error( $response ) ? 0 : $response['code'];
-		if ( ( $code >= 200 && $code < 300 ) || 403 === $code || 404 === $code ) {
+		if ( ( $code >= 200 && $code < 300 ) || in_array( $code, array( 400, 403, 404 ), true ) ) {
 			set_site_transient( self::REPORT_HASH_KEY, $hash, self::REPORT_DEDUPE_TTL );
+			return;
+		}
+
+		/*
+		 * A timeout, rate limit or server error. Hold the same report back for a minute, so a
+		 * failing wpcom doesn't cost every trigger the full timeout, then retry it once: after a
+		 * one-off build switch, nothing else would send it before the hourly event.
+		 */
+		set_site_transient( self::REPORT_HASH_KEY, $hash, MINUTE_IN_SECONDS );
+		if ( ! wp_next_scheduled( self::REPORT_CRON_HOOK, array( 'retry' ) ) ) {
+			wp_schedule_single_event( time() + MINUTE_IN_SECONDS + 15, self::REPORT_CRON_HOOK, array( 'retry' ) );
 		}
 	}
 
