@@ -1,0 +1,14 @@
+{
+	"name": "automattic/companion",
+	"description": "The plugin every Jurassic Ninja site is provided with.",
+	"license": "GPL-2.0-or-later",
+	"require-dev": {
+		"phpunit/phpunit": "^9.6"
+	},
+	"scripts": {
+		"test": "phpunit"
+	},
+	"config": {
+		"sort-packages": true
+	}
+}
