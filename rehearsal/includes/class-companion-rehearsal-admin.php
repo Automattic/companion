@@ -42,8 +42,8 @@ final class Companion_Rehearsal_Admin {
 			return;
 		}
 		$url = Companion_Rehearsal::url( 'assets/' );
-		wp_enqueue_style( 'rehearsal', $url . 'runner.css', array(), Companion_Rehearsal::VERSION );
-		wp_enqueue_script( 'rehearsal', $url . 'runner.js', array( 'wp-api-fetch' ), Companion_Rehearsal::VERSION, true );
+		wp_enqueue_style( 'rehearsal', $url . 'runner.css', array(), self::asset_version( 'runner.css' ) );
+		wp_enqueue_script( 'rehearsal', $url . 'runner.js', array( 'wp-api-fetch' ), self::asset_version( 'runner.js' ), true );
 		wp_add_inline_script(
 			'rehearsal',
 			'window.rehearsalData = ' . wp_json_encode(
@@ -65,6 +65,18 @@ final class Companion_Rehearsal_Admin {
 			) . ';',
 			'before'
 		);
+	}
+
+	/**
+	 * An asset's version: the release plus when the file last changed. JN serves assets with a 10-year
+	 * cache, so a copy synced to a site without a new release would otherwise keep the old file.
+	 *
+	 * @param string $file File name in assets/.
+	 * @return string
+	 */
+	private static function asset_version( $file ) {
+		$changed = @filemtime( Companion_Rehearsal::path( 'assets/' . $file ) ); // phpcs:ignore WordPress.PHP.NoSilencedErrors.Discouraged
+		return Companion_Rehearsal::VERSION . ( $changed ? '.' . $changed : '' );
 	}
 
 	/**
