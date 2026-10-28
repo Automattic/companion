@@ -65,9 +65,20 @@ class Companion_JN_Ledger {
 	const REPORT_DEDUPE_TTL = 300;
 
 	/**
-	 * WP-Cron hook for the hourly report.
+	 * WP-Cron hook for the hourly report, which also runs the title sync.
 	 */
 	const REPORT_CRON_HOOK = 'companion_jn_ledger_report';
+
+	/**
+	 * Option holding the label and site title as of the last sync, so a later change to either
+	 * one can be told apart and copied to the other.
+	 */
+	const TITLE_SYNC_KEY = 'companion_jn_ledger_title_sync';
+
+	/**
+	 * The most bytes wpcom keeps in a label.
+	 */
+	const LABEL_MAX_BYTES = 200;
 
 	/**
 	 * Tools page slug for the "What's this site for?" form.
@@ -85,6 +96,20 @@ class Companion_JN_Ledger {
 	 * @var bool
 	 */
 	private static $report_queued = false;
+
+	/**
+	 * Whether a title sync has already been queued for the end of this request.
+	 *
+	 * @var bool
+	 */
+	private static $title_sync_queued = false;
+
+	/**
+	 * Whether the record was read from wpcom, rather than the cache, during this request.
+	 *
+	 * @var bool
+	 */
+	private static $record_read = false;
 
 	/**
 	 * Hooks everything up on Jurassic Ninja sites on WP.cloud. Does nothing anywhere else.
@@ -120,6 +145,13 @@ class Companion_JN_Ledger {
 		}
 
 		add_action( 'init', array( __CLASS__, 'schedule_report' ) );
+
+		/*
+		 * A new site title is copied to the label. A label changed in Mission Control is picked
+		 * up whenever the record is read again, or by the hourly event if nobody visits wp-admin.
+		 */
+		add_action( 'update_option_blogname', array( __CLASS__, 'queue_title_sync' ) );
+		add_action( self::REPORT_CRON_HOOK, array( __CLASS__, 'queue_title_sync' ) );
 	}
 
 	/**
@@ -203,6 +235,8 @@ class Companion_JN_Ledger {
 		$code     = is_wp_error( $response ) ? 0 : $response['code'];
 		if ( 200 === $code && is_array( $response['body'] ) ) {
 			self::cache_record( $response['body'], self::RECORD_CACHE_TTL );
+			self::$record_read = true;
+			self::queue_title_sync();
 			return $response['body'];
 		}
 		if ( 403 === $code || 404 === $code ) {
@@ -371,7 +405,10 @@ class Companion_JN_Ledger {
 				<table class="form-table" role="presentation">
 					<tr>
 						<th scope="row"><label for="companion_jn_ledger_label"><?php echo esc_html__( 'Label', 'companion' ); ?></label></th>
-						<td><input type="text" id="companion_jn_ledger_label" name="label" class="regular-text" maxlength="200" value="<?php echo self::esc_text( $label ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Escaped by esc_text(). ?>" /></td>
+						<td>
+							<input type="text" id="companion_jn_ledger_label" name="label" class="regular-text" maxlength="200" value="<?php echo self::esc_text( $label ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Escaped by esc_text(). ?>" aria-describedby="companion_jn_ledger_label_description" />
+							<p class="description" id="companion_jn_ledger_label_description"><?php echo esc_html__( 'Also used as the site title.', 'companion' ); ?></p>
+						</td>
 					</tr>
 					<tr>
 						<th scope="row"><label for="companion_jn_ledger_notes"><?php echo esc_html__( 'Notes', 'companion' ); ?></label></th>
@@ -446,6 +483,9 @@ class Companion_JN_Ledger {
 			// wpcom answers with the updated record, so cache that rather than reading it again.
 			if ( is_array( $response['body'] ) ) {
 				self::cache_record( $response['body'], self::RECORD_CACHE_TTL );
+				self::$record_read = true;
+				// Now rather than at shutdown, so the page this redirects to has the new title.
+				self::sync_title( isset( $fields['label'] ) );
 			} else {
 				delete_site_transient( self::RECORD_CACHE_KEY );
 			}
@@ -550,6 +590,185 @@ class Companion_JN_Ledger {
 		if ( ! wp_next_scheduled( self::REPORT_CRON_HOOK, array( 'retry' ) ) ) {
 			wp_schedule_single_event( time() + MINUTE_IN_SECONDS + 15, self::REPORT_CRON_HOOK, array( 'retry' ) );
 		}
+	}
+
+	/**
+	 * Queues one title sync for the end of the request, however many hooks ask for it.
+	 */
+	public static function queue_title_sync() {
+		if ( self::$title_sync_queued ) {
+			return;
+		}
+		self::$title_sync_queued = true;
+		add_action( 'shutdown', array( __CLASS__, 'sync_title' ), PHP_INT_MAX );
+	}
+
+	/**
+	 * Keeps the site title and the ledger label the same.
+	 *
+	 * A label changed on wpcom, in Mission Control or the form, becomes the site title. A site
+	 * title changed from the one Jurassic Ninja gave the site becomes the label. When both
+	 * changed since they last matched, the label wins. Clearing the label leaves the title as
+	 * it is, and so does setting the title back to the one the site started with.
+	 *
+	 * The first time, a changed title becomes the label, and otherwise the label becomes the
+	 * title.
+	 *
+	 * @param bool $label_saved Whether the form just saved a new label, which then wins even
+	 *                          before the first sync.
+	 */
+	public static function sync_title( $label_saved = false ) {
+		// At shutdown, hand the response to the browser first, as send_report() does.
+		if ( doing_action( 'shutdown' ) && ! ( defined( 'WP_CLI' ) && WP_CLI ) && function_exists( 'fastcgi_finish_request' ) ) {
+			fastcgi_finish_request();
+		}
+
+		$record = self::get_record();
+		if ( null === $record ) {
+			return;
+		}
+
+		$title_label = self::apply_title_sync( $record, true === $label_saved );
+		if ( null === $title_label ) {
+			return;
+		}
+
+		/*
+		 * The title is about to replace the label, so make sure the label it replaces is current:
+		 * a cached record can be up to an hour old, and a label changed in Mission Control since
+		 * then must win. If wpcom can't be read, the next sync tries again.
+		 */
+		if ( ! self::$record_read ) {
+			$record = self::get_record( true );
+			if ( ! self::$record_read ) {
+				return;
+			}
+			$title_label = self::apply_title_sync( $record, false );
+			if ( null === $title_label ) {
+				return;
+			}
+		}
+
+		$label    = self::string_field( $record, 'label' );
+		$title    = (string) get_option( 'blogname' );
+		$response = self::request( '/update', array( 'label' => $title_label ), array( 'timeout' => self::REPORT_TIMEOUT ) );
+		$code     = is_wp_error( $response ) ? 0 : $response['code'];
+		if ( 200 === $code ) {
+			if ( is_array( $response['body'] ) ) {
+				self::cache_record( $response['body'], self::RECORD_CACHE_TTL );
+				$title_label = self::string_field( $response['body'], 'label' );
+			} else {
+				// The cached record still has the old label, which would read as a change on wpcom.
+				delete_site_transient( self::RECORD_CACHE_KEY );
+			}
+			self::save_title_sync( $title_label, $title );
+		} elseif ( in_array( $code, array( 400, 403, 404 ), true ) ) {
+			// Refused for good, so it isn't sent again until the title changes.
+			self::save_title_sync( $label, $title );
+		}
+		// After a timeout, rate limit, conflict or server error, the next sync sends it again.
+	}
+
+	/**
+	 * Does the part of sync_title() that needs no request: copies a changed label to the title,
+	 * and works out whether the title needs to be sent as the label.
+	 *
+	 * @param array $record      Ledger record.
+	 * @param bool  $label_saved Whether the form just saved a new label.
+	 * @return string|null The label to send, or null when there is nothing to send.
+	 */
+	private static function apply_title_sync( array $record, $label_saved ) {
+		$label  = self::string_field( $record, 'label' );
+		$title  = (string) get_option( 'blogname' );
+		$synced = get_option( self::TITLE_SYNC_KEY );
+		$synced = is_array( $synced ) && isset( $synced['label'], $synced['title'] ) ? $synced : null;
+
+		if ( $label_saved || ( null !== $synced && $label !== $synced['label'] ) ) {
+			self::save_title_sync( $label, '' === $label ? $title : self::set_title( $label ) );
+			return null;
+		}
+		if ( null !== $synced && $title === $synced['title'] ) {
+			return null;
+		}
+
+		// The title changed since they last matched, or they never have.
+		$title_label = self::title_label( $title );
+		if ( $title_label === $label ) {
+			self::save_title_sync( $label, $title );
+			return null;
+		}
+		if ( '' === $title_label || self::is_default_title( $title_label ) ) {
+			self::save_title_sync( $label, null === $synced && '' !== $label ? self::set_title( $label ) : $title );
+			return null;
+		}
+		return $title_label;
+	}
+
+	/**
+	 * Sets the site title to a label, and returns the title as stored.
+	 *
+	 * The label is cleaned as the form cleans it, so nothing but wpcom's own cleaning stands
+	 * between it and the title. Then it is encoded, as Settings → General does with what is
+	 * typed there, but entity-like text included: sanitize_option() runs esc_html(), which
+	 * leaves an existing "&amp;" alone, so it would show as "&".
+	 *
+	 * @param string $label Label.
+	 * @return string
+	 */
+	private static function set_title( $label ) {
+		update_option( 'blogname', self::esc_text( self::plain_text( $label, false ) ) );
+		return (string) get_option( 'blogname' );
+	}
+
+	/**
+	 * The label for a site title: the title as plain text, cut to what wpcom keeps.
+	 *
+	 * @param string $title Site title, as stored.
+	 * @return string
+	 */
+	private static function title_label( $title ) {
+		$label = self::plain_text( wp_specialchars_decode( $title, ENT_QUOTES ), false );
+		if ( strlen( $label ) > self::LABEL_MAX_BYTES ) {
+			// Cut whole characters, with mb_substr(), which WordPress provides when mbstring is missing.
+			$label = mb_substr( $label, 0, self::LABEL_MAX_BYTES );
+			while ( strlen( $label ) > self::LABEL_MAX_BYTES ) {
+				$label = mb_substr( $label, 0, -1 );
+			}
+			$label = trim( $label );
+		}
+		return $label;
+	}
+
+	/**
+	 * Whether a title, as plain text, is the one Jurassic Ninja gave the site: its subdomain
+	 * with dashes as spaces and each word capitalized, so "Bagpipes Of Fields" on
+	 * bagpipes-of-fields.jurassic.ninja. Older sites had the bare subdomain.
+	 *
+	 * @param string $title Site title, as plain text.
+	 * @return bool
+	 */
+	private static function is_default_title( $title ) {
+		$host      = (string) wp_parse_url( network_site_url(), PHP_URL_HOST );
+		$subdomain = strstr( $host, '.', true );
+		$subdomain = false === $subdomain ? $host : $subdomain;
+		return in_array( $title, array( $subdomain, ucwords( str_replace( '-', ' ', $subdomain ) ) ), true );
+	}
+
+	/**
+	 * Remembers the label and site title as of this sync.
+	 *
+	 * @param string $label Label.
+	 * @param string $title Site title, as stored.
+	 */
+	private static function save_title_sync( $label, $title ) {
+		update_option(
+			self::TITLE_SYNC_KEY,
+			array(
+				'label' => $label,
+				'title' => $title,
+			),
+			false
+		);
 	}
 
 	/**
