@@ -106,10 +106,7 @@ final class Companion_Rehearsal_Store {
 	 */
 	public static function save_recipe( $id, $title, array $recipe, $source = '' ) {
 		global $wpdb;
-		// Stamp the format a rehearsal was written in; one written for a newer version keeps its own.
-		if ( ! isset( $recipe['format'] ) ) {
-			$recipe = array( 'format' => Companion_Rehearsal::FORMAT ) + $recipe;
-		}
+		$recipe = Companion_Rehearsal_Schema::with_format( $recipe );
 		$post = array(
 			'post_type'   => Companion_Rehearsal::RECIPE,
 			'post_status' => 'publish',

@@ -113,6 +113,8 @@ Going over is a notice, never a failure.
 - Make what you create unique with `{{run}}`, then find it again: `tr:has-text("Ada Verify {{run}}")`.
 - Before leaving a page, wait for its confirmation. A `goto` straight after a click can cancel the save
   that click started.
+- A click that loads another page isn't waited for, here or in Playwright. Next, expect something that
+  is only on the new page; otherwise the step can still match the old one.
 - Close welcome guides with an optional step:
   `{ "click": "[role=dialog] button[aria-label=\"Close\"]", "optional": true, "timeout": 4000 }`.
 - Steps that change the site say so in the title, like the examples do.
@@ -183,10 +185,11 @@ requests are noted in the report instead of counting as console errors.
 - Block editor pages send `Document-Isolation-Policy`, which would hide the frame from the runner.
   Rehearsal turns off client-side media processing (which sends that header) only for requests from
   the frame while a run is going.
-- **Roles**: a test user per role (`rehearsal-editor`, …) is created when first needed. While a
-  rehearsal with a role runs, requests from the frame act as that user. Only an administrator can do
-  this, the Rehearsal screen's own requests are never switched, and it ends with the rehearsal. Other
-  wp-admin tabs' background requests (autosave, heartbeat) are switched too during such a run.
+- **Roles**: a test user per role (`rehearsal-editor`, …) is created when first needed and marked as
+  Rehearsal's own; an existing account with that name is never used. While a rehearsal with a role runs,
+  page loads into frames and the frame's own requests (marked with an `X-Rehearsal-Frame` header) act as
+  that user. Only an administrator can do this, and it ends with the rehearsal. A frame in another
+  wp-admin tab that loads a page during such a run is switched too.
 - Only administrators can see, edit or run rehearsals. Runs cannot be edited once saved.
 - The browser runner cannot open other sites (such as the WordPress.com connection flow), take
   screenshots, open menus that only use CSS `:hover`, or type characters with `press` (use `fill`).

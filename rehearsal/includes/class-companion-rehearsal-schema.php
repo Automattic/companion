@@ -18,6 +18,9 @@ final class Companion_Rehearsal_Schema {
 	// Page loads are only measured for rehearsals that set a budget.
 	const BUDGET_KEYS = array( 'ttfb', 'fcp', 'lcp', 'cls', 'requests', 'weight', 'js' );
 
+	// Step keys that take a selector.
+	const SELECTOR_KEYS = array( 'waitFor', 'expect', 'expectCount', 'fill', 'click', 'check', 'uncheck', 'selectOption', 'hover', 'snapshot', 'in', 'on' );
+
 	/**
 	 * Check a decoded recipe against the step vocabulary.
 	 *
@@ -25,67 +28,175 @@ final class Companion_Rehearsal_Schema {
 	 * @return string Error message, or '' when valid.
 	 */
 	public static function validate( $recipe ) {
-		if ( ! is_array( $recipe ) || ! isset( $recipe['steps'] ) || ! is_array( $recipe['steps'] ) || ! $recipe['steps'] ) {
+		if ( ! is_array( $recipe ) || ! isset( $recipe['steps'] ) || ! self::is_list( $recipe['steps'] ) || ! $recipe['steps'] ) {
 			return 'The JSON must be an object with a non-empty "steps" array.';
 		}
 		// Free-form labels a CI job matches against what changed: project names, paths or tags.
-		if ( isset( $recipe['covers'] ) ) {
-			foreach ( is_array( $recipe['covers'] ) ? $recipe['covers'] : array( null ) as $label ) {
-				if ( ! is_string( $label ) || ! preg_match( '#^[A-Za-z0-9._/*@-]{1,100}$#', $label ) ) {
-					return '"covers" must be a list of short labels without spaces, such as ["packages/forms"] or ["src/checkout/*"].';
-				}
-			}
+		if ( array_key_exists( 'covers', $recipe ) && ! self::is_list_of( $recipe['covers'], '#^[A-Za-z0-9._/*@-]{1,100}$#' ) ) {
+			return '"covers" must be a list of short labels without spaces, such as ["packages/forms"] or ["src/checkout/*"].';
 		}
-		if ( isset( $recipe['requires'] ) ) {
-			foreach ( is_array( $recipe['requires'] ) ? $recipe['requires'] : array( null ) as $slug ) {
-				if ( ! is_string( $slug ) || ! preg_match( '/^[a-z0-9._-]{1,100}$/', $slug ) ) {
-					return '"requires" must be a list of plugin slugs (their folder names), such as ["jetpack"].';
-				}
-			}
+		if ( array_key_exists( 'requires', $recipe ) && ! self::is_list_of( $recipe['requires'], '/^[a-z0-9._-]{1,100}$/' ) ) {
+			return '"requires" must be a list of plugin slugs (their folder names), such as ["jetpack"].';
 		}
-		if ( isset( $recipe['role'] ) && ( ! is_string( $recipe['role'] ) || ! preg_match( '/^[a-z0-9_-]{1,60}$/', $recipe['role'] ) ) ) {
+		if ( array_key_exists( 'role', $recipe ) && ( ! is_string( $recipe['role'] ) || ! preg_match( '/^[a-z0-9_-]{1,60}$/', $recipe['role'] ) ) ) {
 			return '"role" must be a role slug, such as "editor".';
 		}
-		if ( isset( $recipe['theme'] ) ) {
-			$themes = is_array( $recipe['theme'] ) ? $recipe['theme'] : array( $recipe['theme'] );
-			foreach ( $themes ?: array( null ) as $slug ) {
-				if ( ! is_string( $slug ) || ! preg_match( '/^[a-z0-9._-]{1,100}$/', $slug ) ) {
-					return '"theme" must be a theme slug (its folder name), such as "twentytwentyfour", or a list of them.';
-				}
-			}
+		if ( array_key_exists( 'theme', $recipe ) && ! self::is_list_of( is_string( $recipe['theme'] ) ? array( $recipe['theme'] ) : $recipe['theme'], '/^[a-z0-9._-]{1,100}$/' ) ) {
+			return '"theme" must be a theme slug (its folder name), such as "twentytwentyfour", or a list of them.';
 		}
-		if ( isset( $recipe['budgets'] ) ) {
-			foreach ( is_array( $recipe['budgets'] ) ? $recipe['budgets'] : array( 'x' => null ) as $key => $limit ) {
+		if ( array_key_exists( 'budgets', $recipe ) ) {
+			foreach ( is_array( $recipe['budgets'] ) && $recipe['budgets'] ? $recipe['budgets'] : array( 'x' => null ) as $key => $limit ) {
 				if ( ! in_array( $key, self::BUDGET_KEYS, true ) || ! is_numeric( $limit ) || $limit <= 0 ) {
 					return sprintf( '"budgets" takes positive numbers for: %s.', implode( ', ', self::BUDGET_KEYS ) );
 				}
 			}
 		}
-		if ( isset( $recipe['format'] ) && ( ! is_int( $recipe['format'] ) || $recipe['format'] < 1 ) ) {
+		if ( array_key_exists( 'format', $recipe ) && ( ! is_int( $recipe['format'] ) || $recipe['format'] < 1 ) ) {
 			return '"format" must be a whole number from 1 up.';
 		}
-		if ( isset( $recipe['needs'] ) && 'playwright' !== $recipe['needs'] ) {
+		if ( array_key_exists( 'needs', $recipe ) && 'playwright' !== $recipe['needs'] ) {
 			return '"needs" can only be "playwright".';
 		}
-		foreach ( array_values( $recipe['steps'] ) as $i => $step ) {
-			$actions = is_array( $step ) ? array_intersect( array_keys( $step ), self::STEPS ) : array();
-			if ( 1 !== count( $actions ) ) {
-				return sprintf( 'Step %d must have exactly one of: %s.', $i + 1, implode( ', ', self::STEPS ) );
-			}
-			if ( isset( $step['goto'] ) && ( ! is_string( $step['goto'] ) || '/' !== substr( $step['goto'], 0, 1 ) || '//' === substr( $step['goto'], 0, 2 ) ) ) {
-				return sprintf( 'Step %d: "goto" must be a path on this site, starting with a single "/".', $i + 1 );
-			}
-			if ( isset( $step['expect'] ) && 1 !== count( array_intersect( array_keys( $step ), self::MATCHERS ) ) ) {
-				return sprintf( 'Step %d: "expect" needs exactly one of: %s.', $i + 1, implode( ', ', self::MATCHERS ) );
-			}
-			if ( isset( $step['selectOption'] ) && ! isset( $step['value'] ) ) {
-				return sprintf( 'Step %d: "selectOption" needs a "value" (the option\'s value or its label).', $i + 1 );
-			}
-			if ( isset( $step['press'] ) && ( ! is_string( $step['press'] ) || '' === $step['press'] ) ) {
-				return sprintf( 'Step %d: "press" needs a key, such as "Enter" or "Control+A".', $i + 1 );
+		if ( array_key_exists( 'timeout', $recipe ) && ! self::is_timeout( $recipe['timeout'] ) ) {
+			return '"timeout" must be a whole number of milliseconds, such as 10000.';
+		}
+		foreach ( $recipe['steps'] as $i => $step ) {
+			$error = self::step_error( $step );
+			if ( $error ) {
+				return sprintf( 'Step %d%s', $i + 1, $error );
 			}
 		}
 		return '';
+	}
+
+	/**
+	 * What is wrong with one step.
+	 *
+	 * @param mixed $step Step.
+	 * @return string Error, starting with ":" or " must", or '' when valid.
+	 */
+	private static function step_error( $step ) {
+		$actions = is_array( $step ) && ! self::is_list( $step ) ? array_intersect( array_keys( $step ), self::STEPS ) : array();
+		if ( 1 !== count( $actions ) ) {
+			return ' must have exactly one of: ' . implode( ', ', self::STEPS ) . '.';
+		}
+		if ( array_key_exists( 'goto', $step ) ) {
+			// No backslash or control character: browsers read "/\x" and "/<tab>/x" as "//x", another site.
+			if ( ! is_string( $step['goto'] ) || ! preg_match( '#^/(?!/)[^\\\\\x00-\x1f]*$#', $step['goto'] ) ) {
+				return ': "goto" must be a path on this site, starting with a single "/".';
+			}
+		}
+		foreach ( self::SELECTOR_KEYS as $key ) {
+			if ( array_key_exists( $key, $step ) && ( ! is_string( $step[ $key ] ) || '' === trim( $step[ $key ] ) ) ) {
+				return sprintf( ': "%s" must be a selector, such as "#submit" or "text=Save".', $key );
+			}
+		}
+		if ( array_key_exists( 'expectText', $step ) && ( ! is_string( $step['expectText'] ) || '' === $step['expectText'] ) ) {
+			return ': "expectText" must be the text to find.';
+		}
+		if ( array_key_exists( 'screenshot', $step ) && ( ! is_string( $step['screenshot'] ) || ! preg_match( '/^[A-Za-z0-9._-]{1,100}$/', $step['screenshot'] ) || '.' === $step['screenshot'][0] ) ) {
+			return ': "screenshot" must be a file name without a folder, such as "checkout".';
+		}
+		if ( array_key_exists( 'press', $step ) && ( ! is_string( $step['press'] ) || '' === $step['press'] ) ) {
+			return ': "press" needs a key, such as "Enter" or "Control+A".';
+		}
+		if ( isset( $step['selectOption'] ) && ! isset( $step['value'] ) ) {
+			return ': "selectOption" needs a "value" (the option\'s value or its label).';
+		}
+		if ( array_key_exists( 'value', $step ) && ! is_string( $step['value'] ) && ! is_int( $step['value'] ) && ! is_float( $step['value'] ) ) {
+			return ': "value" must be text or a number.';
+		}
+		if ( array_key_exists( 'timeout', $step ) && ! self::is_timeout( $step['timeout'] ) ) {
+			return ': "timeout" must be a whole number of milliseconds, such as 5000.';
+		}
+		if ( array_key_exists( 'min', $step ) && ( ! is_int( $step['min'] ) || $step['min'] < 0 ) ) {
+			return ': "min" must be a whole number from 0 up.';
+		}
+		foreach ( array( 'optional', 'not' ) as $key ) {
+			if ( array_key_exists( $key, $step ) && ! is_bool( $step[ $key ] ) ) {
+				return sprintf( ': "%s" must be true or false.', $key );
+			}
+		}
+		if ( array_key_exists( 'expectNoConsoleErrors', $step ) ) {
+			$check = $step['expectNoConsoleErrors'];
+			if ( true !== $check && ( ! is_array( $check ) || self::is_list( $check ) || ( array_key_exists( 'ignore', $check ) && ! self::is_list_of( $check['ignore'] ) ) ) ) {
+				return ': "expectNoConsoleErrors" must be true, or { "ignore": [ patterns ] }.';
+			}
+		}
+		if ( isset( $step['expect'] ) ) {
+			$matchers = array_values( array_intersect( array_keys( $step ), self::MATCHERS ) );
+			if ( 1 !== count( $matchers ) ) {
+				return ': "expect" needs exactly one of: ' . implode( ', ', self::MATCHERS ) . '.';
+			}
+			$want = $step[ $matchers[0] ];
+			switch ( $matchers[0] ) {
+				case 'toHaveCount':
+					$ok = is_int( $want ) && $want >= 0;
+					break;
+				case 'toHaveText':
+				case 'toContainText':
+					$ok = is_string( $want );
+					break;
+				case 'toHaveValue':
+					$ok = is_string( $want ) || is_int( $want ) || is_float( $want );
+					break;
+				default:
+					$ok = is_bool( $want );
+			}
+			if ( ! $ok ) {
+				return sprintf( ': "%s" has the wrong kind of value.', $matchers[0] );
+			}
+		}
+		return '';
+	}
+
+	/**
+	 * Whether a value is a JSON array rather than an object.
+	 *
+	 * @param mixed $value Value.
+	 * @return bool
+	 */
+	private static function is_list( $value ) {
+		return is_array( $value ) && array_values( $value ) === $value;
+	}
+
+	/**
+	 * Whether a value is a non-empty JSON array of strings, each matching a pattern when one is given.
+	 *
+	 * @param mixed  $value   Value.
+	 * @param string $pattern Regex.
+	 * @return bool
+	 */
+	private static function is_list_of( $value, $pattern = '' ) {
+		if ( ! self::is_list( $value ) || ! $value ) {
+			return false;
+		}
+		foreach ( $value as $item ) {
+			if ( ! is_string( $item ) || ( $pattern && ! preg_match( $pattern, $item ) ) ) {
+				return false;
+			}
+		}
+		return true;
+	}
+
+	/**
+	 * Whether a value is a usable timeout: a positive whole number of milliseconds.
+	 *
+	 * @param mixed $value Value.
+	 * @return bool
+	 */
+	private static function is_timeout( $value ) {
+		return is_int( $value ) && $value > 0 && $value <= 600000;
+	}
+
+	/**
+	 * A rehearsal stamped with the format it was written in. One that has a format keeps it.
+	 *
+	 * @param array $recipe Validated rehearsal.
+	 * @return array
+	 */
+	public static function with_format( array $recipe ) {
+		return isset( $recipe['format'] ) ? $recipe : array( 'format' => Companion_Rehearsal::FORMAT ) + $recipe;
 	}
 
 	/**

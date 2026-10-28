@@ -9,6 +9,36 @@
 	var box = ( window.__rehearsal = { errors: [] } );
 	var leaving = false;
 
+	// Marks this frame's same-origin requests, so a rehearsal's role applies to them and not to other tabs'.
+	// Same-origin only: a custom header on a cross-origin request would need a CORS preflight.
+	function sameOrigin( url ) {
+		try {
+			return new URL( url, location.href ).origin === location.origin;
+		} catch ( e ) {
+			return false;
+		}
+	}
+	if ( window.fetch ) {
+		var nativeFetch = window.fetch;
+		window.fetch = function ( input, init ) {
+			var isRequest = window.Request && input instanceof window.Request;
+			if ( sameOrigin( isRequest ? input.url : String( input ) ) ) {
+				init = Object.assign( {}, init );
+				var headers = new Headers( init.headers || ( isRequest ? input.headers : undefined ) );
+				headers.set( 'X-Rehearsal-Frame', '1' );
+				init.headers = headers;
+			}
+			return nativeFetch.call( this, input, init );
+		};
+	}
+	var nativeOpen = XMLHttpRequest.prototype.open;
+	XMLHttpRequest.prototype.open = function ( method, url ) {
+		nativeOpen.apply( this, arguments );
+		if ( sameOrigin( url ) ) {
+			this.setRequestHeader( 'X-Rehearsal-Frame', '1' );
+		}
+	};
+
 	// Page-load metrics. Taken once, 1.5 s after the load event, so later runner clicks don't count.
 	try {
 		performance.setResourceTimingBufferSize( 2000 );

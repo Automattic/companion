@@ -23,8 +23,8 @@ final class Companion_Rehearsal_Runs {
 			$entry = (array) $entry;
 			$item  = array(
 				'ok'  => ! empty( $entry['ok'] ),
-				// Not sanitize_text_field(): it strips %XX sequences, mangling the URLs these messages quote.
-				'msg' => substr( wp_strip_all_tags( (string) ( $entry['msg'] ?? '' ) ), 0, 1000 ),
+				// Plain text, only ever shown escaped: kept verbatim so selectors and quoted markup survive.
+				'msg' => substr( (string) ( $entry['msg'] ?? '' ), 0, 1000 ),
 				'ms'  => absint( $entry['ms'] ?? 0 ),
 			);
 			foreach ( array_slice( (array) ( $entry['pages'] ?? array() ), 0, 10 ) as $page ) {

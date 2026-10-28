@@ -106,6 +106,11 @@ final class Companion_Rehearsal_Rest {
 						'type'    => 'boolean',
 						'default' => false,
 					),
+					// The rehearsal ID the preview showed; installing anything else is refused.
+					'expect'  => array(
+						'type'    => 'string',
+						'pattern' => '^[0-9a-f]{64}$',
+					),
 				),
 			)
 		);
@@ -221,7 +226,13 @@ final class Companion_Rehearsal_Rest {
 		if ( ! wp_http_validate_url( $source ) || 'https' !== wp_parse_url( $source, PHP_URL_SCHEME ) || false === strpos( $source, 'rehearsal=' ) ) {
 			return new WP_Error( 'rehearsal_bad_link', 'That is not a rehearsal link. It should look like https://some-site.jurassic.ninja/?rehearsal=…', array( 'status' => 400 ) );
 		}
-		$response = wp_safe_remote_get( add_query_arg( 'format', 'json', $source ), array( 'timeout' => 15 ) );
+		$response = wp_safe_remote_get(
+			add_query_arg( 'format', 'json', $source ),
+			array(
+				'timeout'             => 15,
+				'limit_response_size' => MB_IN_BYTES,
+			)
+		);
 		if ( is_wp_error( $response ) ) {
 			return new WP_Error( 'rehearsal_fetch_failed', 'Could not reach the site that shared this rehearsal: ' . $response->get_error_message(), array( 'status' => 502 ) );
 		}
@@ -234,7 +245,8 @@ final class Companion_Rehearsal_Rest {
 		if ( $error ) {
 			return new WP_Error( 'rehearsal_invalid', Companion_Rehearsal_Schema::install_error( is_array( $recipe ) ? $recipe : array(), $error ), array( 'status' => 400 ) );
 		}
-		$title    = trim( sanitize_text_field( $payload['title'] ?? '' ) );
+		$text     = static fn( $key ) => isset( $payload[ $key ] ) && is_string( $payload[ $key ] ) ? $payload[ $key ] : '';
+		$title    = trim( sanitize_text_field( $text( 'title' ) ) );
 		$title    = '' === $title ? 'Shared rehearsal' : $title;
 		$existing = get_posts(
 			array(
@@ -247,19 +259,22 @@ final class Companion_Rehearsal_Rest {
 			)
 		);
 		$preview  = array(
-			'title'   => $title,
-			'recipe'  => $recipe,
-			'id'      => Companion_Rehearsal_Schema::hash( Companion_Rehearsal_Schema::canonical( $recipe ) ),
-			'site'    => esc_url_raw( $payload['site'] ?? '' ),
-			'build'   => sanitize_text_field( $payload['build'] ?? '' ),
-			'updates' => $existing ? (int) $existing[0] : 0,
-			'format'  => Companion_Rehearsal_Schema::format_of( $recipe ),
-			'newer'   => Companion_Rehearsal_Schema::is_newer( $recipe ),
-			'shared_by' => sanitize_text_field( (string) ( $payload['shared_by'] ?? '' ) ),
-			'missing' => Companion_Rehearsal_Requirements::missing_requirements( $recipe ),
+			'title'     => $title,
+			'recipe'    => $recipe,
+			'id'        => Companion_Rehearsal_Schema::hash( Companion_Rehearsal_Schema::canonical( $recipe ) ),
+			'site'      => esc_url_raw( $text( 'site' ) ),
+			'build'     => sanitize_text_field( $text( 'build' ) ),
+			'updates'   => $existing ? (int) $existing[0] : 0,
+			'format'    => Companion_Rehearsal_Schema::format_of( $recipe ),
+			'newer'     => Companion_Rehearsal_Schema::is_newer( $recipe ),
+			'shared_by' => sanitize_text_field( $text( 'shared_by' ) ),
+			'missing'   => Companion_Rehearsal_Requirements::missing_requirements( $recipe ),
 		);
 		if ( $request['dry_run'] ) {
 			return rest_ensure_response( $preview );
+		}
+		if ( empty( $request['expect'] ) || $request['expect'] !== $preview['id'] ) {
+			return new WP_Error( 'rehearsal_changed', 'The shared rehearsal changed since you previewed it. Preview it again before installing.', array( 'status' => 409 ) );
 		}
 		$id = Companion_Rehearsal_Store::save_recipe( $existing ? (int) $existing[0] : 0, $title, $recipe, $source );
 		return is_wp_error( $id ) ? $id : rest_ensure_response( Companion_Rehearsal_Store::recipe_for_js( get_post( $id ) ) + array( 'updated' => (bool) $existing ) );

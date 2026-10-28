@@ -52,7 +52,54 @@ class PlaywrightTest extends TestCase {
 			'step timeout is kept'             => array( array( 'waitFor' => '#x', 'timeout' => 4000 ), '.toBeVisible( { timeout: 4000 } );' ),
 			'press without a target'           => array( array( 'press' => 'Escape' ), 'await page.keyboard.press( "Escape" );' ),
 			'ignored console errors'           => array( array( 'expectNoConsoleErrors' => array( 'ignore' => array( 'already registered' ) ) ), 'new RegExp( "already registered" )' ),
+			'user text keeps its spacing'      => array( array( 'fill' => '#q', 'value' => 'call ( ) now' ), '.fill( "call ( ) now" );' ),
+			'no timeout, no options'           => array( array( 'hover' => '#menu' ), '.hover();' ),
 		);
+	}
+
+	public function test_a_click_timeout_cannot_add_code() {
+		$code = $this->generate( array( array( 'click' => '#a', 'timeout' => '1 ); process.exit( 1 ); ( 2' ) ) );
+		$this->assertStringContainsString( ".first(), 1 );\n", $code );
+		$this->assertStringNotContainsString( 'process.exit', $code );
+	}
+
+	/**
+	 * @dataProvider every_step
+	 *
+	 * @param array $step A step of one type.
+	 */
+	public function test_every_step_type_becomes_code( $step ) {
+		$code = $this->generate( array( array( 'goto' => '/' ), $step ) );
+		$this->assertMatchesRegularExpression( '/\n\t\t(await |expect\()[^\n]+;\n\t\} \);\n\} \);\n$/', $code );
+	}
+
+	public function test_every_step_type_is_in_the_list_above() {
+		$types = array_map( static fn( $row ) => current( array_intersect( array_keys( $row[0] ), Companion_Rehearsal_Schema::STEPS ) ), $this->every_step() );
+		$this->assertEqualsCanonicalizing( Companion_Rehearsal_Schema::STEPS, array_values( array_unique( $types ) ) );
+	}
+
+	public function every_step() {
+		$steps = array(
+			'goto'                  => array( 'goto' => '/wp-admin/' ),
+			'waitFor'               => array( 'waitFor' => '#a' ),
+			'expectText'            => array( 'expectText' => 'Hello', 'in' => 'main' ),
+			'expectCount'           => array( 'expectCount' => 'li', 'min' => 0 ),
+			'fill'                  => array( 'fill' => '#a', 'value' => 'x' ),
+			'click'                 => array( 'click' => '#a' ),
+			'check'                 => array( 'check' => '#a' ),
+			'uncheck'               => array( 'uncheck' => '#a' ),
+			'selectOption'          => array( 'selectOption' => '#a', 'value' => 'b' ),
+			'hover'                 => array( 'hover' => '#a' ),
+			'press'                 => array( 'press' => 'Enter', 'on' => '#a' ),
+			'expectNoConsoleErrors' => array( 'expectNoConsoleErrors' => true ),
+			'snapshot'              => array( 'snapshot' => 'main' ),
+			'screenshot'            => array( 'screenshot' => 'home' ),
+		);
+		$values = array( 'toHaveCount' => 2, 'toHaveText' => 'a', 'toContainText' => 'a', 'toHaveValue' => 'a' );
+		foreach ( Companion_Rehearsal_Schema::MATCHERS as $matcher ) {
+			$steps[ "expect $matcher" ] = array( 'expect' => '#a', $matcher => $values[ $matcher ] ?? true );
+		}
+		return array_map( static fn( $step ) => array( $step ), $steps );
 	}
 
 
@@ -100,15 +147,29 @@ class PlaywrightTest extends TestCase {
 		$this->assertStringContainsString( 'trackLoads( page, {"weight":1000} )', $code );
 	}
 
-	public function test_a_title_stays_on_its_comment_line() {
+	/**
+	 * @dataProvider line_ends
+	 *
+	 * @param string $end A character JS reads as the end of a // comment.
+	 */
+	public function test_a_title_stays_on_its_comment_line( $end ) {
 		$code = Companion_Rehearsal_Playwright::to_playwright(
 			array(
-				'title'      => "Two\nlines",
+				'title'      => "Two{$end}lines",
 				'id'         => str_repeat( 'a', 64 ),
 				'site'       => 'https://example.test/',
 				'definition' => array( 'steps' => array( array( 'goto' => '/' ) ) ),
 			)
 		);
 		$this->assertStringContainsString( '// Rehearsal: Two lines', $code );
+	}
+
+	public function line_ends() {
+		return array(
+			'newline'             => array( "\n" ),
+			'carriage return'     => array( "\r" ),
+			'line separator'      => array( "\u{2028}" ),
+			'paragraph separator' => array( "\u{2029}" ),
+		);
 	}
 }

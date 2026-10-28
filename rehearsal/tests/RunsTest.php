@@ -12,18 +12,18 @@ use PHPUnit\Framework\TestCase;
  */
 class RunsTest extends TestCase {
 
-	public function test_log_keeps_percent_encoded_urls() {
-		$log = Companion_Rehearsal_Runs::clean_log( array( array( 'ok' => true, 'msg' => 'goto /wp-admin/admin.php?p=%2Fforms', 'ms' => 12 ) ) );
-		$this->assertSame( 'goto /wp-admin/admin.php?p=%2Fforms', $log[0]['msg'] );
+	public function test_log_keeps_messages_verbatim() {
+		$msg = 'Step 2: timed out on a[href="/wp-admin/admin.php?p=%2Fforms"] · page showed: <b>Saved</b>';
+		$log = Companion_Rehearsal_Runs::clean_log( array( array( 'ok' => true, 'msg' => $msg, 'ms' => 12 ) ) );
+		$this->assertSame( $msg, $log[0]['msg'] );
 	}
 
-	public function test_log_strips_markup_and_limits_sizes() {
-		$entries = array_fill( 0, 250, array( 'ok' => 1, 'msg' => '<b>x</b>' . str_repeat( 'a', 2000 ), 'ms' => -5 ) );
+	public function test_log_limits_sizes() {
+		$entries = array_fill( 0, 250, array( 'ok' => 1, 'msg' => str_repeat( 'a', 2000 ), 'ms' => -5 ) );
 		$log     = Companion_Rehearsal_Runs::clean_log( $entries );
 
 		$this->assertCount( 200, $log );
 		$this->assertSame( 1000, strlen( $log[0]['msg'] ) );
-		$this->assertStringStartsWith( 'xaaa', $log[0]['msg'] );
 		$this->assertTrue( $log[0]['ok'] );
 		$this->assertSame( 5, $log[0]['ms'] );
 	}

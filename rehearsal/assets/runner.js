@@ -200,8 +200,15 @@
 			.join( '\n' );
 	}
 
+	// Shows a short status on a button, then its own label again, however often it's clicked.
+	function flash( button, text, ms = 1500 ) {
+		if ( ! button.dataset.label ) button.dataset.label = button.textContent;
+		clearTimeout( button.flashTimer );
+		button.textContent = text;
+		if ( ms ) button.flashTimer = setTimeout( () => ( button.textContent = button.dataset.label ), ms );
+	}
+
 	async function copy( text, button ) {
-		const label = button.textContent;
 		try {
 			await navigator.clipboard.writeText( text );
 		} catch ( e ) {
@@ -213,14 +220,12 @@
 			document.execCommand( 'copy' );
 			ta.remove();
 		}
-		button.textContent = 'Copied';
-		setTimeout( () => ( button.textContent = label ), 1500 );
+		flash( button, 'Copied' );
 	}
 
 	// The clipboard gets a pending promise right away: Chrome refuses a write that waits on a request first.
 	async function copyFetched( url, button ) {
-		const label = button.textContent;
-		button.textContent = 'Copying…';
+		flash( button, 'Copying…', 0 );
 		const text = fetch( url, { credentials: 'same-origin' } ).then( ( res ) => {
 			if ( ! res.ok ) throw new Error( `HTTP ${ res.status }` );
 			return res.text();
@@ -231,11 +236,10 @@
 			} else {
 				await navigator.clipboard.writeText( await text );
 			}
-			button.textContent = 'Copied';
+			flash( button, 'Copied' );
 		} catch ( e ) {
-			button.textContent = 'Copy failed';
+			flash( button, 'Copy failed' );
 		}
-		setTimeout( () => ( button.textContent = label ), 1500 );
 	}
 
 	function logHtml( log, cleared ) {
@@ -393,7 +397,9 @@
 		try {
 			const res = await apiFetch( { path: `/rehearsal/v1/runs/search?${ query }` } );
 			if ( mine !== runsRequest ) return; // A newer filter change already replaced this one.
-			state.runs = append ? state.runs.concat( res.runs ) : res.runs;
+			// A run saved since the last page shifts the server's pages, so the next page can repeat a row.
+			const seen = new Set( state.runs.map( ( run ) => run.id ) );
+			state.runs = append ? state.runs.concat( res.runs.filter( ( run ) => ! seen.has( run.id ) ) ) : res.runs;
 			state.runTotal = res.total;
 			state.runPages = res.pages;
 			state.runPage = page;
@@ -675,18 +681,27 @@
 		);
 	}
 
+	// What the latest preview showed; Install installs exactly that, or the server refuses.
+	let previewed = null;
+	let previewRequest = 0;
+
 	async function previewInstall() {
+		const mine = ++previewRequest;
+		previewed = null;
 		modalMessage( '#rh-modal-error', '' );
 		const box = modal.querySelector( '#rh-m-preview' );
 		const button = modal.querySelector( '[data-do-install]' );
 		button.disabled = true;
 		box.innerHTML = '<p class="rh-muted">Fetching the rehearsal…</p>';
+		const url = modal.querySelector( '#rh-m-url' ).value.trim();
 		try {
 			const p = await apiFetch( {
 				path: '/rehearsal/v1/install',
 				method: 'POST',
-				data: { url: modal.querySelector( '#rh-m-url' ).value.trim(), dry_run: true },
+				data: { url, dry_run: true },
 			} );
+			if ( mine !== previewRequest ) return; // A later preview replaced this one.
+			previewed = { url, id: p.id };
 			box.innerHTML = `<dl class="rh-m-info">
 					<dt>Title</dt><dd>${ esc( p.title ) }</dd>
 					<dt>Rehearsal ID</dt><dd><code>${ short( p.id ) }</code></dd>
@@ -705,6 +720,7 @@
 			button.disabled = false;
 			button.textContent = p.updates ? 'Update my copy' : 'Install';
 		} catch ( e ) {
+			if ( mine !== previewRequest ) return;
 			box.innerHTML = '';
 			modalMessage( '#rh-modal-error', e.message || 'Could not fetch that link.' );
 		}
@@ -712,11 +728,12 @@
 
 	async function doInstall() {
 		modalMessage( '#rh-modal-error', '' );
+		if ( ! previewed ) return;
 		try {
 			const saved = await apiFetch( {
 				path: '/rehearsal/v1/install',
 				method: 'POST',
-				data: { url: modal.querySelector( '#rh-m-url' ).value.trim() },
+				data: { url: previewed.url, expect: previewed.id },
 			} );
 			const r = upsertRecipe( saved );
 			openRecipe( r );
@@ -794,6 +811,12 @@
 		if ( e.key === 'Enter' && e.target.id === 'rh-m-url' ) {
 			e.preventDefault();
 			previewInstall();
+		}
+	} );
+	modal.addEventListener( 'input', ( e ) => {
+		if ( e.target.id === 'rh-m-url' && previewed && e.target.value.trim() !== previewed.url ) {
+			previewed = null;
+			modal.querySelector( '[data-do-install]' ).disabled = true;
 		}
 	} );
 	document.getElementById( 'rh-add' ).addEventListener( 'click', () => openRecipe( null ) );
@@ -1091,8 +1114,8 @@
 			return `expectText “${ step.expectText }”`;
 		}
 		if ( 'expectCount' in step ) {
-			const min = step.min || 1;
-			const count = () => onSiteDoc().querySelectorAll( step.expectCount ).length;
+			const min = step.min ?? 1;
+			const count = () => findAll( onSiteDoc(), step.expectCount ).length;
 			await until( run, () => count() >= min, `at least ${ min } × ${ step.expectCount }`, timeout );
 			return `expectCount ${ step.expectCount } ≥ ${ min } (found ${ count() })`;
 		}
@@ -1215,10 +1238,33 @@
 		throw new Error( `Unknown step: ${ Object.keys( step ).join( ', ' ) }` );
 	}
 
+	function clearRoleCookie() {
+		document.cookie = 'rehearsal_role=; path=/; max-age=0';
+	}
+
+	// A run cut short by a reload or a closed tab leaves its cookies behind, so clear them on the way in and out.
+	function clearCookies() {
+		clearRoleCookie();
+		document.cookie = 'rehearsal_frame=; path=/; max-age=0';
+	}
+	clearCookies();
+	window.addEventListener( 'pagehide', clearCookies );
+
+	// Errors the previous rehearsal's page logged after its last step are not this rehearsal's.
+	function ignoreEarlierErrors() {
+		try {
+			const win = frame.contentWindow;
+			if ( win && win.__rehearsal ) win.__rehearsalSeen = win.__rehearsal.errors.length;
+		} catch ( e ) {}
+	}
+
 	async function runRecipe( r ) {
+		// Saving an edit mid-run updates r in place; the run keeps the rehearsal it started with.
+		const { id, hash, title, recipe, newer, format } = r;
+		clearRoleCookie();
 		// pageDoc starts as whatever the last rehearsal left in the frame, so it isn't measured as this run's page.
 		// Page loads are measured only for a rehearsal with its own budgets; pages: null switches it off.
-		const budget = r.recipe.budgets || null;
+		const budget = recipe.budgets || null;
 		const run = { log: [], errors: [], snapshots: [], pages: budget ? [] : null, newPages: [], pageDoc: frameDoc() };
 		// Page loads seen while a step ran are shown under that step's log line.
 		const attachPages = ( entry ) => {
@@ -1229,25 +1275,26 @@
 			return entry;
 		};
 		resetFrame();
+		ignoreEarlierErrors();
 		r.live = { status: 'running', log: run.log };
 		r.open = true;
 		renderRecipes();
 
 		let status = 'pass';
-		if ( r.newer ) run.log.push( { ok: true, msg: `Warning: ${ newerText( r.format ) }`, ms: 0 } );
-		if ( r.recipe.needs === 'playwright' ) {
+		if ( newer ) run.log.push( { ok: true, msg: `Warning: ${ newerText( format ) }`, ms: 0 } );
+		if ( recipe.needs === 'playwright' ) {
 			run.log.push( { ok: true, msg: 'Needs Playwright, so the browser did not run it. Saved as waiting for the Playwright runner.', ms: 0 } );
 			status = 'queued';
 		} else {
-			const timeout = r.recipe.timeout || DEFAULT_TIMEOUT;
+			const timeout = recipe.timeout || DEFAULT_TIMEOUT;
 			// {{run}} gives each run its own values, so it can find the form, page or response it created.
 			const token = Date.now().toString( 36 );
-			const steps = JSON.parse( JSON.stringify( r.recipe.steps ).split( '{{run}}' ).join( token ) );
-			if ( JSON.stringify( r.recipe.steps ).includes( '{{run}}' ) ) {
+			const steps = JSON.parse( JSON.stringify( recipe.steps ).split( '{{run}}' ).join( token ) );
+			if ( JSON.stringify( recipe.steps ).includes( '{{run}}' ) ) {
 				run.log.push( { ok: true, msg: `{{run}} = ${ token }`, ms: 0 } );
 			}
 			// A "role" makes the frame's requests act as that role's test user, until the cookie is cleared below.
-			const role = r.recipe.role && r.recipe.role !== 'administrator' ? r.recipe.role : '';
+			const role = recipe.role && recipe.role !== 'administrator' ? recipe.role : '';
 			if ( role ) {
 				try {
 					const user = await apiFetch( { path: '/rehearsal/v1/role-user', method: 'POST', data: { role } } );
@@ -1259,7 +1306,7 @@
 				}
 			}
 			for ( const [ i, step ] of ( status === 'pass' ? steps : [] ).entries() ) {
-				document.getElementById( 'rh-frame-step' ).textContent = `${ r.title } · step ${ i + 1 }/${ steps.length }`;
+				document.getElementById( 'rh-frame-step' ).textContent = `${ title } · step ${ i + 1 }/${ steps.length }`;
 				const t0 = performance.now();
 				try {
 					const msg = await exec( run, step, step.timeout || timeout );
@@ -1279,14 +1326,14 @@
 				await sleep( STEP_PAUSE );
 			}
 			if ( run.log.length ) attachPages( run.log[ run.log.length - 1 ] );
-			document.cookie = 'rehearsal_role=; path=/; max-age=0';
+			clearRoleCookie();
 		}
 
 		try {
 			const saved = await apiFetch( {
 				path: '/rehearsal/v1/runs',
 				method: 'POST',
-				data: { recipe_id: r.id, recipe_hash: r.hash, status, log: run.log, snapshots: run.snapshots, errors: run.consoleErrors || [] },
+				data: { recipe_id: id, recipe_hash: hash, status, log: run.log, snapshots: run.snapshots, errors: run.consoleErrors || [] },
 			} );
 			r.lastRun = saved;
 			r.live = null;
@@ -1320,7 +1367,7 @@
 		state.running = true;
 		// Tells the plugin which editor loads come from the runner's frame (see no_isolation_in_frame()).
 		document.cookie = `rehearsal_frame=1; path=/; max-age=1800; SameSite=Strict${ window.location.protocol === 'https:' ? '; Secure' : '' }`;
-		state.recipes.forEach( ( r ) => {
+		picked.forEach( ( r ) => {
 			r.live = null;
 			r.logCleared = true;
 			r.open = false;
@@ -1337,8 +1384,7 @@
 			}
 		} finally {
 			state.running = false;
-			document.cookie = 'rehearsal_frame=; path=/; max-age=0';
-			document.cookie = 'rehearsal_role=; path=/; max-age=0';
+			clearCookies();
 			document.getElementById( 'rh-frame-step' ).textContent = 'Done';
 			renderRecipes();
 		}

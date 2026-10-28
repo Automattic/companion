@@ -40,7 +40,6 @@ final class Companion_Rehearsal_Share {
 	private static function share_payload( $post ) {
 		return array(
 			'format' => 'rehearsal',
-			'v'      => 1,
 			'title'  => get_the_title( $post ),
 			'id'     => Companion_Rehearsal_Schema::hash( $post->post_content ),
 			'definition' => json_decode( $post->post_content, true ),

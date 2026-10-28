@@ -18,6 +18,9 @@ final class Companion_Rehearsal_Roles {
 	 */
 	private static $acting_as = '';
 
+	// User meta set on the test users Rehearsal creates.
+	const MARK = '_rehearsal_test_user';
+
 	/**
 	 * Whether this request was switched to a role's test user.
 	 *
@@ -28,18 +31,26 @@ final class Companion_Rehearsal_Roles {
 	}
 
 	/**
-	 * Whether a request comes from the runner's frame: frame page loads do, and so do other requests
-	 * unless the Rehearsal page itself made them. Top-level page loads never do.
+	 * Whether a request comes from the runner's frame: a page load into a frame, or a request the
+	 * recorder marked, which it only does inside the runner's frame. Other tabs' requests carry neither.
 	 *
-	 * @param string $dest    The Sec-Fetch-Dest header.
-	 * @param string $referer The Referer header.
+	 * @param string $dest   The Sec-Fetch-Dest header.
+	 * @param string $marker The X-Rehearsal-Frame header.
 	 * @return bool
 	 */
-	public static function is_from_frame( $dest, $referer ) {
-		if ( 'iframe' === $dest ) {
-			return true;
-		}
-		return 'document' !== $dest && false === strpos( (string) $referer, 'page=' . Companion_Rehearsal::SLUG );
+	public static function is_from_frame( $dest, $marker ) {
+		return 'iframe' === $dest || ( '1' === $marker && 'document' !== $dest );
+	}
+
+	/**
+	 * Whether a user is one of the test users Rehearsal made, and not an account that only shares the name.
+	 *
+	 * @param WP_User|false $user User.
+	 * @param string        $role Role it must have.
+	 * @return bool
+	 */
+	public static function is_test_user( $user, $role ) {
+		return $user && in_array( $role, (array) $user->roles, true ) && get_user_meta( $user->ID, self::MARK, true );
 	}
 
 	/**
@@ -53,14 +64,14 @@ final class Companion_Rehearsal_Roles {
 		if ( ! $user_id || empty( $_COOKIE['rehearsal_role'] ) ) {
 			return $user_id;
 		}
-		$dest    = isset( $_SERVER['HTTP_SEC_FETCH_DEST'] ) ? sanitize_key( wp_unslash( $_SERVER['HTTP_SEC_FETCH_DEST'] ) ) : '';
-		$referer = isset( $_SERVER['HTTP_REFERER'] ) ? esc_url_raw( wp_unslash( $_SERVER['HTTP_REFERER'] ) ) : '';
-		if ( ! self::is_from_frame( $dest, $referer ) || ! user_can( $user_id, 'manage_options' ) ) {
+		$dest   = isset( $_SERVER['HTTP_SEC_FETCH_DEST'] ) ? sanitize_key( wp_unslash( $_SERVER['HTTP_SEC_FETCH_DEST'] ) ) : '';
+		$marker = isset( $_SERVER['HTTP_X_REHEARSAL_FRAME'] ) ? sanitize_key( wp_unslash( $_SERVER['HTTP_X_REHEARSAL_FRAME'] ) ) : '';
+		if ( ! self::is_from_frame( $dest, $marker ) || ! user_can( $user_id, 'manage_options' ) ) {
 			return $user_id;
 		}
 		$role = sanitize_key( wp_unslash( $_COOKIE['rehearsal_role'] ) );
 		$test = get_user_by( 'login', 'rehearsal-' . $role );
-		if ( ! $test || ! in_array( $role, (array) $test->roles, true ) ) {
+		if ( ! self::is_test_user( $test, $role ) ) {
 			return $user_id;
 		}
 		self::$acting_as = $role;
@@ -93,7 +104,10 @@ final class Companion_Rehearsal_Roles {
 			if ( is_wp_error( $id ) ) {
 				return $id;
 			}
+			update_user_meta( $id, self::MARK, 1 );
 			$user = get_user_by( 'id', $id );
+		} elseif ( ! get_user_meta( $user->ID, self::MARK, true ) ) {
+			return new WP_Error( 'rehearsal_user_taken', "There is already a user called \"$login\" that Rehearsal did not create, so it will not run as that account. Rename or delete it to run rehearsals as $role.", array( 'status' => 409 ) );
 		} elseif ( ! in_array( $role, (array) $user->roles, true ) ) {
 			$user->set_role( $role );
 		}

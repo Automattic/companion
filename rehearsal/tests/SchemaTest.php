@@ -43,6 +43,20 @@ class SchemaTest extends TestCase {
 			'needs something else'        => array( array( 'needs' => 'selenium', 'steps' => $step ), '"needs"' ),
 			'format zero'                 => array( array( 'format' => 0, 'steps' => $step ), '"format"' ),
 			'format as text'              => array( array( 'format' => '2', 'steps' => $step ), '"format"' ),
+			// An object where a list belongs breaks the whole Rehearsal screen, which maps over it.
+			'steps as an object'          => array( array( 'steps' => array( 'a' => array( 'goto' => '/' ) ) ), 'non-empty "steps"' ),
+			'covers as an object'         => array( array( 'covers' => array( 'a' => 'x' ), 'steps' => $step ), '"covers"' ),
+			'requires as an object'       => array( array( 'requires' => array( 'a' => 'jetpack' ), 'steps' => $step ), '"requires"' ),
+			'theme as an object'          => array( array( 'theme' => array( 'a' => 'twentytwentyfour' ), 'steps' => $step ), '"theme"' ),
+			'goto null'                   => array( array( 'steps' => array( array( 'goto' => null ) ) ), '"goto" must be a path' ),
+			'goto with a backslash'       => array( array( 'steps' => array( array( 'goto' => '/\\evil.example' ) ) ), '"goto" must be a path' ),
+			'goto with a tab'             => array( array( 'steps' => array( array( 'goto' => "/\t/evil.example" ) ) ), '"goto" must be a path' ),
+			'selector null'               => array( array( 'steps' => array( array( 'click' => null ) ) ), '"click" must be a selector' ),
+			'timeout as text'             => array( array( 'timeout' => '10s', 'steps' => $step ), '"timeout"' ),
+			'step timeout as code'        => array( array( 'steps' => array( array( 'click' => '#a', 'timeout' => '1 ); process.exit( 1 ); ( 2' ) ) ), '"timeout"' ),
+			'toHaveCount as text'         => array( array( 'steps' => array( array( 'expect' => 'li', 'toHaveCount' => '3' ) ) ), '"toHaveCount"' ),
+			'screenshot outside its dir'  => array( array( 'steps' => array( array( 'screenshot' => '../../x' ) ) ), '"screenshot"' ),
+			'ignore as text'              => array( array( 'steps' => array( array( 'expectNoConsoleErrors' => array( 'ignore' => 'x' ) ) ) ), '"expectNoConsoleErrors"' ),
 		);
 	}
 
@@ -93,6 +107,24 @@ class SchemaTest extends TestCase {
 			'no format (older rehearsal)' => array( array(), false ),
 			'this version'                => array( array( 'format' => Companion_Rehearsal::FORMAT ), false ),
 			'a newer version'             => array( array( 'format' => Companion_Rehearsal::FORMAT + 1 ), true ),
+		);
+	}
+
+	/**
+	 * @dataProvider stamps
+	 *
+	 * @param array $rehearsal Rehearsal as saved.
+	 * @param int   $expected  Format it is stored with.
+	 */
+	public function test_a_saved_rehearsal_keeps_or_gets_a_format( $rehearsal, $expected ) {
+		$this->assertSame( $expected, Companion_Rehearsal_Schema::with_format( $rehearsal )['format'] );
+	}
+
+	public function stamps() {
+		return array(
+			'none: this version\'s'  => array( array( 'steps' => array() ), Companion_Rehearsal::FORMAT ),
+			'this version\'s'        => array( array( 'format' => Companion_Rehearsal::FORMAT ), Companion_Rehearsal::FORMAT ),
+			'a newer one stays newer' => array( array( 'format' => Companion_Rehearsal::FORMAT + 1 ), Companion_Rehearsal::FORMAT + 1 ),
 		);
 	}
 

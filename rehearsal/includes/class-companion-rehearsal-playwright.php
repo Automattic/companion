@@ -217,10 +217,10 @@ final class Companion_Rehearsal_Playwright {
 		$uses_run = false !== strpos( $source, '{{run}}' );
 		$uses_err = false !== strpos( $source, '"expectNoConsoleErrors"' );
 		$budgets  = ! empty( $def['budgets'] );
-		$title    = str_replace( array( "\r", "\n" ), ' ', $payload['title'] );
+		$title    = self::one_line( $payload['title'] );
 		$body     = array();
 		foreach ( array_values( $def['steps'] ) as $step ) {
-			$code   = preg_replace( '/\(\s+\)/', '()', self::step( $step ) );
+			$code   = self::step( $step );
 			$body[] = empty( $step['optional'] ) ? $code : "await optional( async () => {\n\t$code\n} );";
 			if ( $budgets && ( isset( $step['goto'] ) || isset( $step['click'] ) || isset( $step['press'] ) ) ) {
 				$body[] = 'await measure();';
@@ -253,7 +253,7 @@ final class Companion_Rehearsal_Playwright {
 		return array_merge(
 			array(
 				'// Rehearsal: ' . $title,
-				'// Rehearsal ' . substr( $payload['id'], 0, 7 ) . ' from ' . $payload['site'] . ', format ' . Companion_Rehearsal_Schema::format_of( $def ) . '.',
+				'// Rehearsal ' . substr( $payload['id'], 0, 7 ) . ' from ' . self::one_line( $payload['site'] ) . ', format ' . Companion_Rehearsal_Schema::format_of( $def ) . '.',
 				'// Requires plugins: ' . ( empty( $def['requires'] ) ? 'none' : implode( ', ', $def['requires'] ) ) . '. Requires theme: ' . ( empty( $def['theme'] ) ? 'any' : implode( ' or ', (array) $def['theme'] ) ) . '. Runs as: ' . ( empty( $def['role'] ) ? 'the logged-in user' : $def['role'] . ' (' . self::storage_env( $def['role'] ) . ')' ) . '.',
 				'test.describe( ' . self::json( $title ) . ', () => {',
 				"\tconst expect = baseExpect.configure( { timeout: $timeout } );",
@@ -269,19 +269,31 @@ final class Companion_Rehearsal_Playwright {
 	}
 
 	/**
+	 * Text for a `//` comment line. JS also ends a line at U+2028 and U+2029, so those go too.
+	 *
+	 * @param string $text Text.
+	 * @return string
+	 */
+	private static function one_line( $text ) {
+		return str_replace( array( "\r", "\n", "\u{2028}", "\u{2029}" ), ' ', (string) $text );
+	}
+
+	/**
 	 * One step as a line of Playwright code.
 	 *
 	 * @param array $step Step.
 	 * @return string
 	 */
 	private static function step( array $step ) {
-		$t  = empty( $step['timeout'] ) ? '' : '{ timeout: ' . (int) $step['timeout'] . ' }';
-		$t2 = $t ? ", $t" : '';
+		$ms = empty( $step['timeout'] ) ? 0 : (int) $step['timeout'];
+		$t  = $ms ? "{ timeout: $ms }" : '';
+		$t1 = $ms ? "( $t )" : '()';
+		$t2 = $ms ? ", $t" : '';
 		if ( isset( $step['goto'] ) ) {
 			return 'await page.goto( ' . self::pw_str( $step['goto'] ) . ' );';
 		}
 		if ( isset( $step['waitFor'] ) ) {
-			return 'await expect( ' . self::pw_locator( $step['waitFor'] ) . " ).toBeVisible( $t );";
+			return 'await expect( ' . self::pw_locator( $step['waitFor'] ) . " ).toBeVisible$t1;";
 		}
 		if ( isset( $step['expectText'] ) ) {
 			$scope = isset( $step['in'] ) ? self::pw_locator( $step['in'] ) : "page.locator( 'body' )";
@@ -300,23 +312,23 @@ final class Companion_Rehearsal_Playwright {
 			if ( 'toHaveCount' === $matcher ) {
 				return 'await expect( ' . self::pw_locator( $step['expect'], false ) . " )$not.toHaveCount( $arg$t2 );";
 			}
-			return 'await expect( ' . self::pw_locator( $step['expect'] ) . " )$not.$matcher( " . ( '' === $arg ? $t : $arg . $t2 ) . ' );';
+			return 'await expect( ' . self::pw_locator( $step['expect'] ) . " )$not.$matcher" . ( '' === $arg ? $t1 : "( $arg$t2 )" ) . ';';
 		}
 		if ( isset( $step['fill'] ) ) {
 			return 'await ' . self::pw_locator( $step['fill'] ) . '.fill( ' . self::pw_str( $step['value'] ?? '' ) . "$t2 );";
 		}
 		if ( isset( $step['click'] ) ) {
-			return 'await click( ' . self::pw_locator( $step['click'] ) . ( $t ? ", {$step['timeout']}" : '' ) . ' );';
+			return 'await click( ' . self::pw_locator( $step['click'] ) . ( $ms ? ", $ms" : '' ) . ' );';
 		}
 		if ( isset( $step['check'] ) || isset( $step['uncheck'] ) ) {
 			$action = isset( $step['check'] ) ? 'check' : 'uncheck';
-			return 'await ' . self::pw_locator( $step[ $action ] ) . ".$action( $t );";
+			return 'await ' . self::pw_locator( $step[ $action ] ) . ".$action$t1;";
 		}
 		if ( isset( $step['selectOption'] ) ) {
 			return 'await ' . self::pw_locator( $step['selectOption'] ) . '.selectOption( ' . self::pw_str( $step['value'] ) . "$t2 );";
 		}
 		if ( isset( $step['hover'] ) ) {
-			return 'await ' . self::pw_locator( $step['hover'] ) . ".hover( $t );";
+			return 'await ' . self::pw_locator( $step['hover'] ) . ".hover$t1;";
 		}
 		if ( isset( $step['press'] ) ) {
 			return isset( $step['on'] )
