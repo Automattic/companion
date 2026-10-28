@@ -61,6 +61,7 @@ class SchemaTest extends TestCase {
 			'toBeVisible false'           => array( array( 'steps' => array( array( 'expect' => 'h1', 'toBeVisible' => false ) ) ), '"not": true' ),
 			'toBeChecked false'           => array( array( 'steps' => array( array( 'expect' => '#a', 'toBeChecked' => false ) ) ), '"toBeChecked" must be true' ),
 			'toBeEnabled as text'         => array( array( 'steps' => array( array( 'expect' => '#a', 'toBeEnabled' => 'yes' ) ) ), '"toBeEnabled"' ),
+			'viewport tablet'             => array( array( 'viewport' => 'tablet', 'steps' => $step ), '"viewport" must be "desktop" or "mobile"' ),
 			'dialog with another answer'  => array( array( 'steps' => array( array( 'dialog' => 'ok' ) ) ), '"dialog" must be "accept" or "dismiss"' ),
 			'requires with a bad or'      => array( array( 'requires' => array( 'jetpack or' ), 'steps' => $step ), '"requires"' ),
 			'requires with a comma'       => array( array( 'requires' => array( 'jetpack, akismet' ), 'steps' => $step ), '"requires"' ),
@@ -73,6 +74,7 @@ class SchemaTest extends TestCase {
 			'requires' => array( 'jetpack', 'akismet or antispam-bee' ),
 			'theme'    => array( 'twentytwentyfour', 'twentytwentyfive' ),
 			'role'     => 'editor',
+			'viewport' => 'mobile',
 			'budgets'  => array( 'lcp' => 2500, 'cls' => 0.1 ),
 			'covers'   => array( 'packages/forms', 'src/checkout/*' ),
 			'timeout'  => 20000,
@@ -147,6 +149,7 @@ class SchemaTest extends TestCase {
 			'none: the oldest that runs it' => array( array( 'steps' => array( array( 'goto' => '/' ) ) ), 1 ),
 			'none, with a dialog step'      => array( array( 'steps' => array( array( 'dialog' => 'accept' ) ) ), 2 ),
 			'none, with either-or requires' => array( array( 'requires' => array( 'a or b' ), 'steps' => array() ), 2 ),
+			'none, pinned to a viewport'    => array( array( 'viewport' => 'desktop', 'steps' => array() ), 2 ),
 			'this version\'s'        => array( array( 'format' => Companion_Rehearsal::FORMAT ), Companion_Rehearsal::FORMAT ),
 			'a newer one stays newer' => array( array( 'format' => Companion_Rehearsal::FORMAT + 1 ), Companion_Rehearsal::FORMAT + 1 ),
 		);

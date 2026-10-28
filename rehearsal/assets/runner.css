@@ -107,7 +107,7 @@
 .rh-progress.fail .rh-progress-track span { background: #d63638; }
 @media (max-width: 782px) { .rh-progress { inset-block-start: 46px; } }
 
-.rh-frame-tools { display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-block-end: 6px; }
+.rh-frame-tools { display: flex; justify-content: flex-start; align-items: center; gap: 8px; margin-block-end: 6px; }
 .rh-segmented { display: inline-flex; }
 .rh-segmented .button { border-radius: 0; margin: 0; }
 .rh-segmented .button:first-child { border-start-start-radius: 3px; border-end-start-radius: 3px; }
@@ -116,6 +116,3 @@
 /* A phone-sized page sits centred on a grey surround. */
 .rh-frame-viewport.is-mobile { background: #f0f0f1; }
 .rh-frame-viewport.is-mobile iframe { background: #fff; box-shadow: 0 0 0 1px #c3c4c7; }
-/* Maximized: the frame spans the width, above the list. */
-.rh-layout.is-maximized { grid-template-columns: minmax(0, 1fr); }
-.rh-layout.is-maximized .rh-frame { position: static; order: -1; }

@@ -32,10 +32,10 @@ Above the frame:
 - **Desktop / Mobile** sets the size pages render at. Desktop is at least 1280 × 800, scaled to fit.
   Mobile is a phone's 390 × 844, so pages use their mobile layout. Only the size changes: the browser
   still says it is a desktop browser, so server-side checks such as `wp_is_mobile()` see desktop. A run
-  keeps the size it started with; mobile runs say so in their log and in **Recent runs**.
-- **Maximize** gives the frame the full width, above the list. **Restore** puts it back.
+  keeps the size it started with; mobile runs say so in their log and in **Recent runs**. A rehearsal
+  with a `viewport` setting always runs at that size, whatever the switch says.
 
-Both are remembered in your browser.
+The switch is remembered in your browser.
 
 ## Writing a rehearsal
 
@@ -108,6 +108,7 @@ the form, page or response it just created.
 | --- | --- | --- |
 | `requires` | `[ "jetpack" ]` | Plugins that must be active (folder names or text domains). `"jetpack or jetpack-premium-analytics"` is met by either. Otherwise the rehearsal is disabled. |
 | `theme` | `"twentytwentyfour"` or a list | The active theme (a child of it counts). Otherwise disabled. |
+| `viewport` | `"desktop"` | Runs only at that size, `"desktop"` or `"mobile"`, whatever the Desktop / Mobile switch says. For steps that only work at one size, such as a button that moves into a menu on phones. |
 | `role` | `"editor"` | Runs as a test user with that role (see below). |
 | `budgets` | `{ "lcp": 2500, "weight": 2097152 }` | Measures every page load and flags the ones over budget. Without it nothing is measured. |
 | `covers` | `[ "packages/forms" ]` | Labels for what the rehearsal exercises, so a CI job can pick rehearsals by what changed. |
@@ -120,7 +121,7 @@ the form, page or response it just created.
 Every rehearsal records the oldest format that can run it (`"format": 1`), so a rehearsal that uses
 nothing new still runs on older sites without a warning. A Companion release raises
 `Companion_Rehearsal::FORMAT` when it adds something older versions can't run: a new step, matcher or
-setting. Format 2 added the `dialog` step and either-or `requires`. A site whose Rehearsal is older than a rehearsal's format still runs it, but warns in the
+setting. Format 2 added the `dialog` step, either-or `requires` and `viewport`. A site whose Rehearsal is older than a rehearsal's format still runs it, but warns in the
 list ("Newer format"), in the dialog, before installing, and as the first line of the run log. When
 an older version can't even read it, installing explains that the Companion plugin needs updating.
 The rehearsal ID ignores the format, so stamping it never makes results stale, and the order of keys,

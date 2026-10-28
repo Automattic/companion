@@ -125,9 +125,15 @@ class PlaywrightTest extends TestCase {
 				'definition' => array( 'steps' => array( array( 'goto' => '/' ) ) ),
 			)
 		);
-		$this->assertStringContainsString( 'const rh = rehearsal( 42, "' . str_repeat( 'c', 64 ) . '" );', $code );
+		$this->assertStringContainsString( 'const rh = rehearsal( 42, "' . str_repeat( 'c', 64 ) . '", "desktop" );', $code );
 		$this->assertStringContainsString( 'test.afterEach( ( {}, info ) => rh.report( info ) );', $code );
 		$this->assertStringContainsString( "'?rest_route=/rehearsal/v1/runs'", $code );
+	}
+
+	public function test_a_pinned_viewport_uses_the_browser_runners_size() {
+		$this->assertStringContainsString( 'test.use( { actionTimeout: 10000, viewport: { width: 390, height: 844 } } );', $this->generate( array( array( 'goto' => '/' ) ), array( 'viewport' => 'mobile' ) ) );
+		$this->assertStringContainsString( 'viewport: { width: 1280, height: 800 }', $this->generate( array( array( 'goto' => '/' ) ), array( 'viewport' => 'desktop' ) ) );
+		$this->assertStringNotContainsString( 'viewport: {', $this->generate( array( array( 'goto' => '/' ) ) ) );
 	}
 
 	public function test_no_page_measuring_without_budgets() {

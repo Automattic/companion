@@ -104,6 +104,8 @@ final class Companion_Rehearsal_Examples {
 		return array(
 			'requires' => array( 'jetpack' ),
 			'covers'   => array( 'packages/forms' ),
+			// Below 600 px the Forms dashboard moves "Create a form" into a "More actions" menu.
+			'viewport' => 'desktop',
 			'timeout' => 20000,
 			'steps'   => array(
 				array( 'goto' => '/wp-admin/admin.php?page=jetpack-forms-responses-wp-admin&p=%2Fforms' ),

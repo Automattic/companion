@@ -56,7 +56,7 @@
 						<button type="button" class="button button-small" data-viewport="desktop" title="Run at desktop width, scaled to fit">Desktop</button>
 						<button type="button" class="button button-small" data-viewport="mobile" title="Run at phone width (390 × 844), so pages use their mobile layout">Mobile</button>
 					</span>
-					<button type="button" class="button button-small" id="rh-maximize" aria-pressed="false">Maximize</button>
+					<span class="rh-muted" id="rh-viewport-note"></span>
 				</div>
 				<div class="rh-frame-bar"><span id="rh-frame-url">Waiting for a run</span><span id="rh-frame-step"></span></div>
 				<div class="rh-frame-viewport" id="rh-frame-viewport">
@@ -101,8 +101,10 @@
 		return null;
 	};
 	state.viewport = remember( 'viewport' ) === 'mobile' ? 'mobile' : 'desktop';
+	// The size in use: a running rehearsal's own "viewport" setting wins over the switch.
+	const currentViewport = () => state.runViewport || state.viewport;
 	const fitFrame = () => {
-		const size = VIEWPORTS[ state.viewport ];
+		const size = VIEWPORTS[ currentViewport() ];
 		const width = size.fill ? Math.max( size.width, viewport.clientWidth ) : size.width;
 		const scale = Math.min( 1, viewport.clientWidth / width );
 		frame.style.width = width + 'px';
@@ -125,14 +127,12 @@
 
 	function renderFrameTools() {
 		root.querySelectorAll( '[data-viewport]' ).forEach( ( b ) => {
-			b.setAttribute( 'aria-pressed', String( b.dataset.viewport === state.viewport ) );
+			b.setAttribute( 'aria-pressed', String( b.dataset.viewport === currentViewport() ) );
 			// A run keeps the size it started with, so its steps all see the same layout.
 			b.disabled = state.running;
 		} );
-		const maxed = root.querySelector( '.rh-layout' ).classList.contains( 'is-maximized' );
-		const max = document.getElementById( 'rh-maximize' );
-		max.setAttribute( 'aria-pressed', String( maxed ) );
-		max.textContent = maxed ? 'Restore' : 'Maximize';
+		document.getElementById( 'rh-viewport-note' ).textContent =
+			state.runViewport && state.runViewport !== state.viewport ? `This rehearsal runs on ${ state.runViewport } only` : '';
 	}
 
 	function setViewport( name ) {
@@ -142,20 +142,11 @@
 		renderFrameTools();
 	}
 
-	// Maximized, the frame takes the full width above the list.
-	function setMaximized( on ) {
-		root.querySelector( '.rh-layout' ).classList.toggle( 'is-maximized', on );
-		remember( 'maximized', on ? '1' : '' );
-		renderFrameTools();
-		fitFrame();
-	}
-
 	root.querySelector( '.rh-frame-tools' ).addEventListener( 'click', ( e ) => {
 		const view = e.target.closest( '[data-viewport]' );
 		if ( view && ! view.disabled ) setViewport( view.dataset.viewport );
-		if ( e.target.closest( '#rh-maximize' ) ) setMaximized( ! root.querySelector( '.rh-layout' ).classList.contains( 'is-maximized' ) );
 	} );
-	setMaximized( remember( 'maximized' ) === '1' );
+	renderFrameTools();
 	document.getElementById( 'rh-progress-close' ).addEventListener( 'click', () => {
 		state.progress = null;
 		renderProgress();
@@ -489,6 +480,7 @@
 					r.recipe.requires ? `requires ${ r.recipe.requires.map( esc ).join( ', ' ) }` : '',
 					r.recipe.theme ? `theme ${ esc( [].concat( r.recipe.theme ).join( ' or ' ) ) }` : '',
 					r.recipe.role ? `as ${ esc( r.recipe.role ) }` : '',
+					r.recipe.viewport ? `${ esc( r.recipe.viewport ) } only` : '',
 					r.source ? 'installed from a link' : '',
 					r.lastRun ? `last run ${ ago( r.lastRun.date ) } by ${ esc( r.lastRun.by ) }${ r.lastRun.viewport === 'mobile' ? ' (mobile)' : '' }` : '',
 					r.lastRun && ! estimate( r ).guessed ? `takes about ${ duration( estimate( r ).ms ) }` : '',
@@ -681,6 +673,7 @@
 			<p><b><code>"requires"</code></b> lists plugin slugs (folder names, or text domains) that must be active, such as <code>["jetpack"]</code>, or <code>["jetpack or jetpack-premium-analytics"]</code> when any one will do. Without them the rehearsal is shown but can't run.</p>
 			<p><b><code>"theme"</code></b> names the theme that must be active (or one of a list), such as <code>"twentytwentyfour"</code>; a child of it counts.</p>
 			<p><b><code>"role"</code></b> runs the rehearsal as a test user with that role, such as <code>"editor"</code> (created as <code>rehearsal-editor</code> the first time). Without it, it runs as you.</p>
+			<p><b><code>"viewport"</code></b> pins the rehearsal to <code>"desktop"</code> or <code>"mobile"</code>, for steps that only work at one size (a button that moves into a menu on phones, say). It then runs at that size whatever the Desktop / Mobile switch says.</p>
 			<p><b><code>"format"</code></b> is the rehearsal format it was written in, added when it's saved. A rehearsal from a newer version of Rehearsal than this site's still runs, with a warning.</p>
 			<p><b>Page loads</b> are measured only when the rehearsal sets <code>"budgets"</code>, e.g. <code>{ "lcp": 2500, "weight": 2097152 }</code>. Pages over a limit get a notice, never a failure. Keys: ${ data.budgetKeys.map( ( k ) => `<code>${ k }</code>` ).join( ' ' ) }; times in ms, CLS unitless, sizes in compressed bytes.</p>
 			<p><b>Selectors:</b> CSS, <code>text=…</code>, <code>role=…</code>, <code>:has-text("…")</code>, and <code>a &gt;&gt; b</code> to look inside <code>a</code> or inside an iframe.</p>
@@ -697,6 +690,7 @@
 				${ r.recipe.requires ? `<dt>Requires plugins</dt><dd>${ esc( r.recipe.requires.join( ', ' ) ) }</dd>` : '' }
 				${ r.recipe.theme ? `<dt>Requires theme</dt><dd>${ esc( [].concat( r.recipe.theme ).join( ' or ' ) ) }</dd>` : '' }
 				${ r.recipe.role ? `<dt>Runs as</dt><dd>${ esc( r.recipe.role ) } (test user rehearsal-${ esc( r.recipe.role ) })</dd>` : '' }
+				${ r.recipe.viewport ? `<dt>Screen size</dt><dd>${ esc( r.recipe.viewport ) } only, whatever the Desktop / Mobile switch says</dd>` : '' }
 				${ blocked( r ) ? `<dt>Can't run here</dt><dd>${ needsPill( r ) }</dd>` : '' }
 				<dt>Last result</dt><dd><span class="rh-pill ${ cls }">${ label }</span>
 					<button type="button" class="button-link" data-runs-for="${ r.id }">See all runs</button></dd>
@@ -867,6 +861,7 @@
 					<dt>Requires plugins</dt><dd>${ p.recipe.requires ? esc( p.recipe.requires.join( ', ' ) ) : 'None' }</dd>
 					<dt>Requires theme</dt><dd>${ p.recipe.theme ? esc( [].concat( p.recipe.theme ).join( ' or ' ) ) : 'Any' }</dd>
 					<dt>Runs as</dt><dd>${ p.recipe.role ? esc( p.recipe.role ) : 'you (the logged-in admin)' }</dd>
+					<dt>Screen size</dt><dd>${ p.recipe.viewport ? `${ esc( p.recipe.viewport ) } only` : 'Any' }</dd>
 					<dt>Format</dt><dd>${ p.format }${ p.shared_by ? ` (shared by a site running Rehearsal ${ esc( p.shared_by ) })` : '' }</dd>
 				</dl>
 				${ p.missing && p.missing.length ? `<p class="rh-error">This site is missing what it needs: ${ esc( p.missing.map( ( m ) => ( m.kind === 'role' ? `the "${ m.name }" role` : `${ m.kind === 'theme' ? 'theme ' : '' }${ m.name } (${ m.state === 'inactive' ? 'not active' : 'not installed' })` ) ).join( ', ' ) ) }. You can install it, but it won't run until they are active.</p>` : '' }
@@ -1442,7 +1437,10 @@
 	async function runRecipe( r, ref ) {
 		// Saving an edit mid-run updates r in place; the run keeps the rehearsal it started with.
 		const { id, hash, title, recipe, newer, format } = r;
-		const view = state.viewport;
+		// A rehearsal pinned to one size runs at it, whatever the switch says.
+		const view = recipe.viewport || state.viewport;
+		state.runViewport = view;
+		renderFrameTools();
 		clearRoleCookie();
 		// pageDoc starts as whatever the last rehearsal left in the frame, so it isn't measured as this run's page.
 		// Page loads are measured only for a rehearsal with its own budgets; pages: null switches it off.
@@ -1468,7 +1466,11 @@
 
 		let status = 'pass';
 		if ( newer ) run.log.push( { ok: true, msg: `Warning: ${ newerText( format ) }`, ms: 0 } );
-		if ( view === 'mobile' ) run.log.push( { ok: true, msg: `Mobile viewport: ${ VIEWPORTS.mobile.width } × ${ VIEWPORTS.mobile.height }`, ms: 0 } );
+		if ( view === 'mobile' || recipe.viewport ) {
+			const size = VIEWPORTS[ view ];
+			const name = view === 'mobile' ? 'Mobile' : 'Desktop';
+			run.log.push( { ok: true, msg: `${ name } viewport: ${ size.width } × ${ size.height }${ recipe.viewport ? ` (this rehearsal is ${ view }-only)` : '' }`, ms: 0 } );
+		}
 		if ( recipe.needs === 'playwright' ) {
 			run.log.push( { ok: true, msg: 'Needs Playwright, so the browser did not run it. Saved as waiting for the Playwright runner.', ms: 0 } );
 			status = 'queued';
@@ -1577,6 +1579,8 @@
 			state.running = false;
 			clearCookies();
 			document.getElementById( 'rh-frame-step' ).textContent = 'Done';
+			state.runViewport = null;
+			fitFrame();
 			finishProgress();
 			renderRecipes();
 		}

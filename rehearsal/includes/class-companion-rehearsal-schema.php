@@ -16,6 +16,8 @@ final class Companion_Rehearsal_Schema {
 	const MATCHERS = array( 'toBeVisible', 'toHaveText', 'toContainText', 'toHaveCount', 'toBeEnabled', 'toBeDisabled', 'toBeChecked', 'toHaveValue' );
 	// How the next alert, confirm or prompt is answered. Without a "dialog" step it is dismissed, as Playwright does.
 	const DIALOG_ACTIONS = array( 'accept', 'dismiss' );
+	// Screen sizes a rehearsal can be pinned to, when its steps only work at one of them.
+	const VIEWPORTS = array( 'desktop', 'mobile' );
 	// One plugin slug, or several joined with " or " when any one of them will do.
 	const REQUIRES_PATTERN = '/^[a-z0-9._-]{1,100}( or [a-z0-9._-]{1,100})*$/';
 	// What a rehearsal's "budgets" may limit: times in ms, CLS unitless, weight and JS in compressed bytes.
@@ -57,6 +59,9 @@ final class Companion_Rehearsal_Schema {
 		}
 		if ( array_key_exists( 'format', $recipe ) && ( ! is_int( $recipe['format'] ) || $recipe['format'] < 1 ) ) {
 			return '"format" must be a whole number from 1 up.';
+		}
+		if ( array_key_exists( 'viewport', $recipe ) && ! in_array( $recipe['viewport'], self::VIEWPORTS, true ) ) {
+			return '"viewport" must be "desktop" or "mobile".';
 		}
 		if ( array_key_exists( 'needs', $recipe ) && 'playwright' !== $recipe['needs'] ) {
 			return '"needs" can only be "playwright".';
@@ -212,13 +217,16 @@ final class Companion_Rehearsal_Schema {
 	}
 
 	/**
-	 * The oldest format that has everything a rehearsal uses. Format 2 added the "dialog" step and
-	 * either-or "requires".
+	 * The oldest format that has everything a rehearsal uses. Format 2 added the "dialog" step,
+	 * either-or "requires" and "viewport".
 	 *
 	 * @param array $recipe Validated rehearsal.
 	 * @return int
 	 */
 	public static function format_needed( array $recipe ) {
+		if ( isset( $recipe['viewport'] ) ) {
+			return 2;
+		}
 		foreach ( (array) ( $recipe['requires'] ?? array() ) as $slug ) {
 			if ( false !== strpos( (string) $slug, ' or ' ) ) {
 				return 2;

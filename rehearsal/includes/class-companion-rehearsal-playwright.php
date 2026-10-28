@@ -135,7 +135,7 @@ final class Companion_Rehearsal_Playwright {
 			'}',
 			'',
 			'// Each step is a step in the Playwright report and a line in the run saved on the site.',
-			'function rehearsal( id: number, hash: string ) {',
+			'function rehearsal( id: number, hash: string, viewport: string ) {',
 			"\t// The error without colours or its call log, on one line: what failed, expected and received.",
 			"\tconst brief = ( e: unknown ) => String( ( e as Error )?.message ?? e ).replace( /\\x1b\\[[0-9;]*m/g, '' ).split( /\\nCall log:/ )[ 0 ].split( '\\n' ).map( ( l ) => l.trim() ).filter( Boolean ).join( ' · ' ).slice( 0, 600 );",
 			"\tlet log: { ok: boolean; msg: string; ms: number }[] = [];",
@@ -169,7 +169,7 @@ final class Companion_Rehearsal_Playwright {
 			"\t\t\t\tconst nonce = await ( await site.get( 'wp-admin/admin-ajax.php?action=rest-nonce' ) ).text();",
 			"\t\t\t\tconst res = await site.post( '?rest_route=/rehearsal/v1/runs', {",
 			"\t\t\t\t\theaders: { 'X-WP-Nonce': nonce },",
-			"\t\t\t\t\tdata: { recipe_id: id, recipe_hash: hash, status, log, runner: 'playwright', ref: process.env.REHEARSAL_REF || '',",
+			"\t\t\t\t\tdata: { recipe_id: id, recipe_hash: hash, status, log, runner: 'playwright', viewport, ref: process.env.REHEARSAL_REF || '',",
 			"\t\t\t\t\t\terrors: status === 'fail' ? errors.map( ( msg ) => ( { msg, page: '', source: '', count: 1 } ) ) : [] },",
 			"\t\t\t\t} );",
 			"\t\t\t\tconst body = await res.json().catch( () => ( {} ) );",
@@ -296,6 +296,10 @@ final class Companion_Rehearsal_Playwright {
 			$setup[] = "page.on( 'requestfailed', ( r ) => test.info().annotations.push( { type: 'request failed', description: `\${ r.failure()?.errorText } \${ r.url() }` } ) );";
 		}
 		$use = "actionTimeout: $timeout";
+		if ( ! empty( $def['viewport'] ) ) {
+			// The browser runner's sizes for each viewport.
+			$use .= ', viewport: ' . ( 'mobile' === $def['viewport'] ? '{ width: 390, height: 844 }' : '{ width: 1280, height: 800 }' );
+		}
 		if ( ! empty( $def['role'] ) ) {
 			$use .= ', storageState: process.env.' . self::storage_env( $def['role'] ) . ' || process.env.STORAGE_STATE';
 		}
@@ -309,7 +313,7 @@ final class Companion_Rehearsal_Playwright {
 				'test.describe( ' . self::json( $title ) . ', () => {',
 				"\tconst expect = baseExpect.configure( { timeout: $timeout } );",
 				"\ttest.use( { $use } );",
-				"\tconst rh = rehearsal( " . (int) ( $payload['post_id'] ?? 0 ) . ', ' . self::json( $payload['id'] ) . ' );',
+				"\tconst rh = rehearsal( " . (int) ( $payload['post_id'] ?? 0 ) . ', ' . self::json( $payload['id'] ) . ', ' . self::json( 'mobile' === ( $def['viewport'] ?? '' ) ? 'mobile' : 'desktop' ) . ' );',
 				"\ttest.afterEach( ( {}, info ) => rh.report( info ) );",
 				'',
 				"\ttest( " . self::json( 'rehearsal ' . substr( $payload['id'], 0, 7 ) ) . ', async ( { page } ) => {',
