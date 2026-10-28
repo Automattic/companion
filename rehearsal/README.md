@@ -14,28 +14,29 @@ check the same way, and compare results by a rehearsal ID that only changes when
 1. Open **Tools → Rehearsal** on a Jurassic Ninja site.
 2. Press **Add example rehearsals**. You get a few rehearsals that work on any site, Jetpack ones when
    Jetpack is active, and **Rehearsal: its own screen works**, which tests this screen itself.
-3. Tick the ones you want and press **Run selected**. Each step's page loads in the frame on the right.
+3. Tick the ones you want and press **Run N selected**. Each step's page loads in the frame on the right.
 
-Click a rehearsal's title to view, edit, share or run it. **Run failed** re-runs only the ones whose
-latest result failed.
+Click a rehearsal's title to view, edit, share or run it. **Run N failed** re-runs only the ones whose
+latest result failed. **Add rehearsal**, **Install from link** and **Run in Playwright** are on the
+right of the toolbar.
 
-![A run in progress: the frame shows the page the current step is on](screenshots/running.png)
+![A run in progress: the progress bar at the top, and the frame showing the current step's page](screenshots/running.png)
 
 While a run goes, a bar at the top shows which rehearsal and step it is on, the time so far, and about
-how long is left. Before you start, the estimate shows next to **Run selected**. Estimates come from each
+how long is left, and when it ends, how long it took and how many passed. Before you start, the
+estimate shows next to **Run N selected**, and each rehearsal shows how long it takes. Estimates come from each
 rehearsal's last run: the whole run when it passed, its pace per step when it stopped early (failed
 steps don't count, since they mostly wait out a timeout), and a guess from the other rehearsals when it
 has never run.
 
-Above the frame:
+**Desktop / Mobile**, above the frame, sets the size pages render at. Desktop is at least 1280 × 800,
+scaled to fit. Mobile is a phone's 390 × 844, so pages use their mobile layout. Only the size changes:
+the browser still says it is a desktop browser, so server-side checks such as `wp_is_mobile()` see
+desktop. A run keeps the size it started with; mobile runs say so in their log and in **Recent runs**.
+A rehearsal with a `viewport` setting always runs at that size, whatever the switch says. The switch is
+remembered in your browser.
 
-- **Desktop / Mobile** sets the size pages render at. Desktop is at least 1280 × 800, scaled to fit.
-  Mobile is a phone's 390 × 844, so pages use their mobile layout. Only the size changes: the browser
-  still says it is a desktop browser, so server-side checks such as `wp_is_mobile()` see desktop. A run
-  keeps the size it started with; mobile runs say so in their log and in **Recent runs**. A rehearsal
-  with a `viewport` setting always runs at that size, whatever the switch says.
-
-The switch is remembered in your browser.
+![A run at mobile size: the front page in its phone layout](screenshots/mobile.png)
 
 ## Writing a rehearsal
 
@@ -121,8 +122,9 @@ the form, page or response it just created.
 Every rehearsal records the oldest format that can run it (`"format": 1`), so a rehearsal that uses
 nothing new still runs on older sites without a warning. A Companion release raises
 `Companion_Rehearsal::FORMAT` when it adds something older versions can't run: a new step, matcher or
-setting. Format 2 added the `dialog` step, either-or `requires` and `viewport`. A site whose Rehearsal is older than a rehearsal's format still runs it, but warns in the
-list ("Newer format"), in the dialog, before installing, and as the first line of the run log. When
+setting. Format 2 added the `dialog` step, either-or `requires` and `viewport`. A site whose Rehearsal
+is older than a rehearsal's format still runs it, but warns in the list ("Newer format"), in the
+dialog, before installing, and as the first line of the run log. When
 an older version can't even read it, installing explains that the Companion plugin needs updating.
 The rehearsal ID ignores the format, so stamping it never makes results stale, and the order of keys,
 so `{ "fill", "value" }` and `{ "value", "fill" }` are the same rehearsal. Runs saved before IDs
@@ -152,7 +154,8 @@ and **Copy errors** puts a plain-text report on the clipboard to pass on.
 
 Results are kept per rehearsal ID. Editing a rehearsal marks its last result **Stale** until it runs
 again. **Recent runs** lists every run and can be filtered by rehearsal, result and who ran it, or
-searched by title or run number (`#233`).
+searched by title or run number (`#233`). Each run has its own link, `…tools.php?page=rehearsal#run-233`,
+which opens Recent runs on that run with its log open.
 
 ![Recent runs filtered to failures](screenshots/runs-filtered.png)
 
@@ -184,7 +187,7 @@ Share links stop working when the site that holds the rehearsal expires.
 ## Running rehearsals in Playwright
 
 Select rehearsals and press **Run in Playwright**. It exports them as one `rehearsals.spec.ts`, one
-`describe` block each with its own timeout, role and budgets, and lists the commands to run it:
+`describe` block each with its own timeout, role, viewport and budgets, and lists the commands to run it:
 
 1. **Get the tests**: the download button, or `curl` the signed link it shows (works in CI too).
 2. **Install Playwright**, once: `npm i -D @playwright/test && npx playwright install chromium`.
@@ -231,6 +234,10 @@ saved run numbers in `data-run-ids`. The runs keep the `ref`, so `wp rehearsal r
 `GET /rehearsal/v1/runs/search?ref=<label>` finds them. The key is checked, so another site can't
 link an admin into running something.
 
+The screen says what ran, and links each saved run to its result:
+
+![A run link's notice: what ran, the result, and a link to the saved run](screenshots/run-link.png)
+
 ## How it works, and its limits
 
 - The runner loads each step's page in a same-origin iframe and drives it with DOM events. A small
@@ -261,7 +268,7 @@ link an admin into running something.
 | `Companion_Rehearsal_Runs` | Saved runs: cleaning what the runner sends, storing, searching |
 | `Companion_Rehearsal_Requirements` | Plugins, theme and role a rehearsal needs |
 | `Companion_Rehearsal_Roles` | Running as a role's test user |
-| `Companion_Rehearsal_Share` | Share links, the share page, JSON and Playwright output |
+| `Companion_Rehearsal_Share` | Share, bundle and run links, the share page, and its JSON, GitHub and Playwright output |
 | `Companion_Rehearsal_Playwright` | Rehearsal → Playwright test |
 | `Companion_Rehearsal_Rest` | REST routes |
 | `Companion_Rehearsal_Admin` | The screen, its assets, the in-frame recorder, the build line |
