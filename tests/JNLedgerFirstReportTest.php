@@ -14,6 +14,7 @@ class JNLedgerFirstReportTest extends TestCase {
 		$GLOBALS['jn_options']         = array();
 		$GLOBALS['jn_actions']         = array();
 		$GLOBALS['jn_cron_events']     = array();
+		$GLOBALS['jn_cron_fails']      = false;
 
 		$queued = new ReflectionProperty( Companion_JN_Ledger::class, 'report_queued' );
 		if ( PHP_VERSION_ID < 80100 ) {
@@ -43,6 +44,30 @@ class JNLedgerFirstReportTest extends TestCase {
 		Companion_JN_Ledger::schedule_first_report();
 
 		$this->assertCount( 1, $GLOBALS['jn_cron_events'] );
+	}
+
+	public function test_a_failed_schedule_is_tried_again_on_the_next_load() {
+		$GLOBALS['jn_cron_fails'] = true;
+		Companion_JN_Ledger::schedule_first_report();
+		$this->assertSame( array(), $GLOBALS['jn_cron_events'] );
+
+		$GLOBALS['jn_cron_fails'] = false;
+		Companion_JN_Ledger::schedule_first_report();
+		$this->assertCount( 1, $GLOBALS['jn_cron_events'] );
+	}
+
+	public function test_init_hooks_up_the_first_report() {
+		Companion_JN_Ledger::init();
+
+		$this->assertContains( array( 'init', array( Companion_JN_Ledger::class, 'schedule_first_report' ), 10 ), $GLOBALS['jn_actions'] );
+		$this->assertContains( array( Companion_JN_Ledger::FIRST_REPORT_CRON_HOOK, array( Companion_JN_Ledger::class, 'first_report' ), 10 ), $GLOBALS['jn_actions'] );
+	}
+
+	public function test_unscheduling_also_drops_a_waiting_first_report() {
+		Companion_JN_Ledger::schedule_first_report();
+		Companion_JN_Ledger::unschedule_report();
+
+		$this->assertSame( array(), $GLOBALS['jn_cron_events'] );
 	}
 
 	public function test_the_first_report_is_queued_when_the_token_is_there() {

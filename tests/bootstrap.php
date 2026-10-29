@@ -16,6 +16,7 @@ $GLOBALS['jn_persistent_data'] = array();
 $GLOBALS['jn_options']         = array();
 $GLOBALS['jn_actions']         = array();
 $GLOBALS['jn_cron_events']     = array();
+$GLOBALS['jn_cron_fails']      = false;
 $GLOBALS['jn_site_transients'] = array();
 $GLOBALS['jn_can_manage']      = false;
 
@@ -43,12 +44,27 @@ function add_action( $hook, $callback, $priority = 10, $accepted_args = 1 ) {
 }
 
 function wp_schedule_single_event( $timestamp, $hook, $args = array() ) {
+	if ( $GLOBALS['jn_cron_fails'] ) {
+		return false;
+	}
 	$GLOBALS['jn_cron_events'][] = array(
 		'timestamp' => $timestamp,
 		'hook'      => $hook,
 		'args'      => $args,
 	);
 	return true;
+}
+
+function wp_unschedule_hook( $hook ) {
+	$GLOBALS['jn_cron_events'] = array_values(
+		array_filter(
+			$GLOBALS['jn_cron_events'],
+			function ( $event ) use ( $hook ) {
+				return $event['hook'] !== $hook;
+			}
+		)
+	);
+	return 0;
 }
 
 function get_site_transient( $key ) {

@@ -612,11 +612,14 @@ class Companion_JN_Ledger {
 		if ( false !== get_option( self::FIRST_REPORT_KEY ) ) {
 			return;
 		}
-		// Autoloaded, so checking it on every load costs no query.
-		if ( ! add_option( self::FIRST_REPORT_KEY, time(), '', true ) ) {
-			return;
+		/*
+		 * Marked only once the event is saved, so a failed save is tried again on the next load.
+		 * Concurrent first loads can't schedule it twice: WP-Cron refuses a duplicate single
+		 * event. The marker is autoloaded, so checking it on every load costs no query.
+		 */
+		if ( true === wp_schedule_single_event( time() + self::FIRST_REPORT_DELAY, self::FIRST_REPORT_CRON_HOOK, array( 1 ) ) ) {
+			add_option( self::FIRST_REPORT_KEY, time(), '', true );
 		}
-		wp_schedule_single_event( time() + self::FIRST_REPORT_DELAY, self::FIRST_REPORT_CRON_HOOK, array( 1 ) );
 	}
 
 	/**
