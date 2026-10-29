@@ -70,6 +70,26 @@ class Companion_JN_Ledger {
 	const REPORT_CRON_HOOK = 'companion_jn_ledger_report';
 
 	/**
+	 * WP-Cron hook for the first report after companion starts loading on a site.
+	 */
+	const FIRST_REPORT_CRON_HOOK = 'companion_jn_ledger_first_report';
+
+	/**
+	 * Option set once the first report is scheduled, so it is scheduled only once per site.
+	 */
+	const FIRST_REPORT_KEY = 'companion_jn_ledger_first_report';
+
+	/**
+	 * Seconds after companion's first load that the first report goes out.
+	 */
+	const FIRST_REPORT_DELAY = 60;
+
+	/**
+	 * Seconds to wait for the API token before the first report's only retry.
+	 */
+	const FIRST_REPORT_RETRY_DELAY = 300;
+
+	/**
 	 * Option holding the label and site title as of the last sync, so a later change to either
 	 * one can be told apart and copied to the other.
 	 */
@@ -147,6 +167,14 @@ class Companion_JN_Ledger {
 		add_action( 'init', array( __CLASS__, 'schedule_report' ) );
 
 		/*
+		 * Jurassic Ninja installs companion as an mu-plugin, after it has switched Jetpack Beta
+		 * to the build the site is for, so no activation hook fires and no plugin change is
+		 * seen. The first load schedules a report instead.
+		 */
+		add_action( 'init', array( __CLASS__, 'schedule_first_report' ) );
+		add_action( self::FIRST_REPORT_CRON_HOOK, array( __CLASS__, 'first_report' ) );
+
+		/*
 		 * A new site title is copied to the label. A label changed in Mission Control is picked
 		 * up whenever the record is read again, or by the hourly event if nobody visits wp-admin.
 		 */
@@ -176,9 +204,8 @@ class Companion_JN_Ledger {
 			return new WP_Error( 'companion_jn_ledger_unavailable' );
 		}
 
-		$persistent_data = new Atomic_Persistent_Data();
-		$api_token       = $persistent_data->JN_API_TOKEN;
-		if ( ! is_string( $api_token ) || '' === $api_token ) {
+		$api_token = self::api_token();
+		if ( '' === $api_token ) {
 			return new WP_Error( 'companion_jn_ledger_unavailable' );
 		}
 
@@ -207,6 +234,18 @@ class Companion_JN_Ledger {
 			'code' => (int) wp_remote_retrieve_response_code( $response ),
 			'body' => json_decode( wp_remote_retrieve_body( $response ), true ),
 		);
+	}
+
+	/**
+	 * The site's JN_API_TOKEN, which Jurassic Ninja stores in persistent data while it sets
+	 * the site up, so it may not be there yet on a new site.
+	 *
+	 * @return string '' when there isn't one.
+	 */
+	private static function api_token() {
+		$persistent_data = new Atomic_Persistent_Data();
+		$api_token       = $persistent_data->JN_API_TOKEN;
+		return is_string( $api_token ) ? $api_token : '';
 	}
 
 	/**
@@ -566,10 +605,41 @@ class Companion_JN_Ledger {
 	}
 
 	/**
-	 * Removes the hourly report.
+	 * Schedules one report a minute after companion first loads on the site, so a new site
+	 * reports without waiting for a login, a plugin change or the hourly event.
+	 */
+	public static function schedule_first_report() {
+		if ( false !== get_option( self::FIRST_REPORT_KEY ) ) {
+			return;
+		}
+		// Autoloaded, so checking it on every load costs no query.
+		if ( ! add_option( self::FIRST_REPORT_KEY, time(), '', true ) ) {
+			return;
+		}
+		wp_schedule_single_event( time() + self::FIRST_REPORT_DELAY, self::FIRST_REPORT_CRON_HOOK, array( 1 ) );
+	}
+
+	/**
+	 * Sends the first report, or, when the API token isn't there yet, tries once more later.
+	 *
+	 * @param int $attempt 1 for the first try, 2 for the retry.
+	 */
+	public static function first_report( $attempt = 1 ) {
+		if ( '' !== self::api_token() ) {
+			self::queue_report();
+			return;
+		}
+		if ( 1 === (int) $attempt ) {
+			wp_schedule_single_event( time() + self::FIRST_REPORT_RETRY_DELAY, self::FIRST_REPORT_CRON_HOOK, array( 2 ) );
+		}
+	}
+
+	/**
+	 * Removes the hourly report and any first report still waiting.
 	 */
 	public static function unschedule_report() {
 		wp_unschedule_hook( self::REPORT_CRON_HOOK );
+		wp_unschedule_hook( self::FIRST_REPORT_CRON_HOOK );
 	}
 
 	/**
