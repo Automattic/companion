@@ -30,10 +30,6 @@ function current_user_can( $cap ) {
 	return $GLOBALS['jn_can_manage'] && 'manage_options' === $cap;
 }
 
-function admin_url( $path = '' ) {
-	return 'https://example.test/wp-admin/' . $path;
-}
-
 function __( $text, $domain = 'default' ) {
 	return $text;
 }
