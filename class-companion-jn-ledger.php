@@ -911,14 +911,17 @@ class Companion_JN_Ledger {
 	 * files replaced since (rsynced, say) carry some other version.
 	 *
 	 * @param string $file Path to the dev plugin's main file.
-	 * @return string '' when the file can't be read.
+	 * @return string '' when the file can't be read, or its version is too long to report.
 	 */
 	private static function file_version( $file ) {
 		if ( ! is_readable( $file ) ) {
 			return '';
 		}
 		$headers = get_file_data( $file, array( 'version' => 'Version' ) );
-		return is_string( $headers['version'] ?? null ) ? $headers['version'] : '';
+		$version = is_string( $headers['version'] ?? null ) ? $headers['version'] : '';
+
+		// wpcom refuses the whole report when any field is over 200 bytes.
+		return strlen( $version ) > 200 ? '' : $version;
 	}
 
 	/**

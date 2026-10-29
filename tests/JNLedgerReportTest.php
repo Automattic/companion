@@ -118,6 +118,16 @@ namespace {
 			);
 		}
 
+		/**
+		 * wpcom refuses a whole report with any field over 200 bytes, so one odd header must
+		 * not cost every plugin its report.
+		 */
+		public function test_an_overlong_version_header_reports_an_empty_file_version() {
+			$this->install( '15.3-a.1-18000000002-gbbbbbbbb', str_repeat( '1', 201 ) );
+
+			$this->assertSame( '', Companion_JN_Ledger::get_installed()['plugins'][0]['file_version'] );
+		}
+
 		public function test_a_missing_main_file_reports_an_empty_file_version() {
 			$this->install( '15.3-a.1-18000000002-gbbbbbbbb', null );
 
