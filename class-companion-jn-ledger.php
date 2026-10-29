@@ -846,10 +846,12 @@ class Companion_JN_Ledger {
 				if ( ! $plugin->is_active( 'dev' ) ) {
 					continue;
 				}
-				$info = self::read_dev_info( dirname( $plugin->dev_plugin_path() ) . '/.jpbeta.json' );
+				$file = $plugin->dev_plugin_path();
+				$info = self::read_dev_info( dirname( $file ) . '/.jpbeta.json' );
 				if ( null === $info ) {
 					continue;
 				}
+				$info['file_version'] = self::file_version( $file );
 				$plugins[] = array_merge( array( 'plugin' => (string) $slug ), $info );
 			}
 		} catch ( Throwable $e ) {
@@ -899,6 +901,24 @@ class Companion_JN_Ledger {
 			'branch'  => $branch,
 			'version' => self::string_field( $info, 'version' ),
 		);
+	}
+
+	/**
+	 * The `Version:` header of the dev plugin's main file, as it is on disk.
+	 *
+	 * `.jpbeta.json` says which build Jetpack Beta installed. This header says which build the
+	 * files are now: CI stamps each Jetpack Beta build `<version>-<run id>-g<commit>`, and
+	 * files replaced since (rsynced, say) carry some other version.
+	 *
+	 * @param string $file Path to the dev plugin's main file.
+	 * @return string '' when the file can't be read.
+	 */
+	private static function file_version( $file ) {
+		if ( ! is_readable( $file ) ) {
+			return '';
+		}
+		$headers = get_file_data( $file, array( 'version' => 'Version' ) );
+		return is_string( $headers['version'] ?? null ) ? $headers['version'] : '';
 	}
 
 	/**
