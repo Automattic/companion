@@ -11,11 +11,61 @@ require dirname( __DIR__ ) . '/rehearsal/tests/bootstrap.php';
 define( 'IS_ATOMIC_JN', true );
 define( 'MINUTE_IN_SECONDS', 60 );
 
-class Atomic_Persistent_Data {}
-
-// Site transients and the current user's capabilities, set per test.
+// Persistent data, options, actions, cron events, site transients and the current user's capabilities, set per test.
+$GLOBALS['jn_persistent_data'] = array();
+$GLOBALS['jn_options']         = array();
+$GLOBALS['jn_actions']         = array();
+$GLOBALS['jn_cron_events']     = array();
+$GLOBALS['jn_cron_fails']      = false;
 $GLOBALS['jn_site_transients'] = array();
 $GLOBALS['jn_can_manage']      = false;
+
+class Atomic_Persistent_Data {
+	public function __get( $name ) {
+		return $GLOBALS['jn_persistent_data'][ $name ] ?? null;
+	}
+}
+
+function get_option( $key, $default = false ) {
+	return array_key_exists( $key, $GLOBALS['jn_options'] ) ? $GLOBALS['jn_options'][ $key ] : $default;
+}
+
+function add_option( $key, $value = '', $deprecated = '', $autoload = null ) {
+	if ( array_key_exists( $key, $GLOBALS['jn_options'] ) ) {
+		return false;
+	}
+	$GLOBALS['jn_options'][ $key ] = $value;
+	return true;
+}
+
+function add_action( $hook, $callback, $priority = 10, $accepted_args = 1 ) {
+	$GLOBALS['jn_actions'][] = array( $hook, $callback, $priority );
+	return true;
+}
+
+function wp_schedule_single_event( $timestamp, $hook, $args = array() ) {
+	if ( $GLOBALS['jn_cron_fails'] ) {
+		return false;
+	}
+	$GLOBALS['jn_cron_events'][] = array(
+		'timestamp' => $timestamp,
+		'hook'      => $hook,
+		'args'      => $args,
+	);
+	return true;
+}
+
+function wp_unschedule_hook( $hook ) {
+	$GLOBALS['jn_cron_events'] = array_values(
+		array_filter(
+			$GLOBALS['jn_cron_events'],
+			function ( $event ) use ( $hook ) {
+				return $event['hook'] !== $hook;
+			}
+		)
+	);
+	return 0;
+}
 
 function get_site_transient( $key ) {
 	return $GLOBALS['jn_site_transients'][ $key ] ?? false;
