@@ -3,7 +3,7 @@
 Plugin Name: Companion Plugin
 Plugin URI: https://github.com/Automattic/companion
 Description: Helps keep the launched WordPress in order.
-Version: 1.31
+Version: 1.32
 Author: Osk
 */
 
@@ -74,6 +74,10 @@ if ( defined( 'IS_ATOMIC_JN' ) && IS_ATOMIC_JN && class_exists('Atomic_Persisten
 require_once __DIR__ . '/class-companion-jn-ledger.php';
 Companion_JN_Ledger::init();
 register_deactivation_hook( __FILE__, array( 'Companion_JN_Ledger', 'unschedule_report' ) );
+
+// Extends the site from a sign-in or from the link in the welcome notice. Only active on WP.cloud Jurassic.Ninja sites.
+require_once __DIR__ . '/class-companion-jn-extend.php';
+Companion_JN_Extend::init();
 
 /**
  * Reset update_core permission that is removed on WP.cloud
@@ -217,13 +221,20 @@ function companion_admin_notices() {
                 $days_left = companion_days_until_destruction();
                 if ( null !== $days_left ) {
                     if ( $days_left > 1 ) {
-                        echo esc_html( sprintf( __( 'will be destroyed in %d days unless you sign in again.' ), $days_left ) );
+                        echo esc_html( sprintf( __( 'will be destroyed in %d days unless you sign in again' ), $days_left ) );
                     } elseif ( 1 === $days_left ) {
-                        echo esc_html__( 'will be destroyed in 1 day unless you sign in again.' );
+                        echo esc_html__( 'will be destroyed in 1 day unless you sign in again' );
                     } elseif ( 0 === $days_left ) {
-                        echo esc_html__( 'will be destroyed today unless you sign in again.' );
+                        echo esc_html__( 'will be destroyed today unless you sign in again' );
                     } else {
                         echo esc_html__( 'is scheduled for destruction.' );
+                    }
+                    if ( $days_left >= 0 ) {
+                        // Only admins can use the link. On sites other than the main one of a multisite, the class is not loaded.
+                        if ( class_exists( 'Companion_JN_Extend' ) && Companion_JN_Extend::is_available() && current_user_can( 'manage_options' ) ) {
+                            echo ' ' . esc_html__( 'or' ) . ' <a href="' . esc_url( Companion_JN_Extend::link_url() ) . '">' . esc_html__( 'extend it' ) . '</a>';
+                        }
+                        echo '.';
                     }
                 } elseif( defined( 'IS_ATOMIC_JN_ANONYMOUS' ) ) {
 	                echo esc_html__( 'will be destroyed 24 hours from site creation.' );
@@ -359,30 +370,7 @@ function companion_wp_login() {
 
 	// Jurassic.Ninja on Atomic
 	if ( defined( 'IS_ATOMIC_JN' ) && IS_ATOMIC_JN && class_exists('Atomic_Persistent_Data') ) {
-		$urlparts = wp_parse_url( network_site_url() );
-		$domain   = $urlparts['host'];
-		// WP.COM Public.API Endpoint
-		$url      = "https://public-api.wordpress.com/wpcom/v2/jurassic-ninja/extend";
-		// Retrieve Shared Token from persistent data.
-		$persistent_data = new Atomic_Persistent_Data();
-		$api_token = $persistent_data->JN_API_TOKEN;
-		$response = wp_remote_post( $url, [
-			'headers' => [
-			],
-			'body'    => [
-				'domain'    => $domain,
-                'api_token' => $api_token,
-			],
-		] );
-		// Store the expiry returned by the extend endpoint so the admin
-		// notice can show a countdown until the site is destroyed. Older
-		// endpoint versions return a bare boolean instead of an object.
-		if ( ! is_wp_error( $response ) ) {
-			$body = json_decode( wp_remote_retrieve_body( $response ), true );
-			if ( is_array( $body ) && ! empty( $body['expires_at'] ) ) {
-				update_option( 'jurassic_ninja_expires_at', $body['expires_at'] );
-			}
-		}
+		Companion_JN_Extend::extend();
 		if ( ! empty ( $auto_login ) ) {
 			// Map of known Jurassic Ninja "experiences" to their landing URL.
 			// Closed list by design — to add an experience, edit this array.
